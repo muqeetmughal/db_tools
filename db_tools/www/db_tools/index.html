@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Tools</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg1: #0a0f22;
+            --bg2: #101735;
+            --card: rgba(255, 255, 255, 0.045);
+            --card-border: rgba(255, 255, 255, 0.09);
+            --card-hover: rgba(255, 255, 255, 0.07);
+            --text: #e9ecf8;
+            --muted: #97a3c8;
+            --faint: #5c6a93;
+            --accent: #6d5ef0;
+            --accent2: #22d3ee;
+            --green: #34d399;
+            --amber: #f59e0b;
+            --rose: #f43f5e;
+            --radius: 18px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: "Inter", system-ui, -apple-system, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1000px 500px at 12% -10%, rgba(109, 94, 240, 0.18), transparent 60%),
+                radial-gradient(900px 500px at 88% -12%, rgba(34, 211, 238, 0.13), transparent 60%),
+                linear-gradient(160deg, var(--bg1), var(--bg2));
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .blob { position: fixed; border-radius: 50%; filter: blur(90px); opacity: .5; z-index: 0; pointer-events: none; }
+        .blob-1 { width: 480px; height: 480px; background: #6d5ef0; top: -140px; left: -120px; animation: drift 18s ease-in-out infinite; }
+        .blob-2 { width: 420px; height: 420px; background: #22d3ee; bottom: -160px; right: -120px; animation: drift 22s ease-in-out infinite reverse; }
+        .blob-3 { width: 360px; height: 360px; background: #f43f5e; top: 40%; left: 55%; opacity: .22; animation: drift 26s ease-in-out infinite; }
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(60px, -50px) scale(1.08); }
+            66% { transform: translate(-50px, 40px) scale(.94); }
+        }
+
+        .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 40px 24px 60px; }
+
+        header.top { text-align: center; margin-bottom: 40px; }
+        .brand-logo {
+            width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 18px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: grid; place-items: center; font-size: 26px; color: #fff;
+            box-shadow: 0 12px 34px rgba(109, 94, 240, .45);
+        }
+        header h1 { font-size: 30px; font-weight: 800; letter-spacing: -.5px; }
+        header p { color: var(--muted); font-size: 14.5px; margin-top: 8px; max-width: 560px; margin-left: auto; margin-right: auto; }
+        .badge-ct { display: inline-block; margin-top: 14px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.3); color: var(--green); }
+        .badge-ct b { color: var(--text); }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+
+        .tool-card {
+            position: relative; display: flex; gap: 16px; align-items: flex-start;
+            background: var(--card); border: 1px solid var(--card-border);
+            border-radius: var(--radius); padding: 22px;
+            text-decoration: none; color: var(--text);
+            transition: transform .2s ease, border-color .2s ease, background .2s ease;
+            overflow: hidden;
+        }
+        .tool-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.18); }
+
+        .tool-card .num {
+            font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 600;
+            color: var(--faint); letter-spacing: 1px; padding-top: 2px;
+        }
+        .tool-card .t-ico {
+            width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+            display: grid; place-items: center; font-size: 19px;
+            background: rgba(109,94,240,.15); color: var(--violet, #a78bfa);
+            border: 1px solid rgba(109,94,240,.25);
+        }
+        .tool-card .t-body { flex: 1; min-width: 0; }
+        .tool-card .t-title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .tool-card h3 { font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
+        .tool-card p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+        .tool-card .t-status {
+            position: absolute; top: 14px; right: 14px;
+            font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+            padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px;
+        }
+        .tool-card.ready .t-status { background: rgba(52,211,153,.13); color: var(--green); border: 1px solid rgba(52,211,153,.35); }
+        .tool-card.soon .t-status { background: rgba(151,163,200,.1); color: var(--faint); border: 1px solid var(--card-border); }
+
+        .tool-card.ready .t-ico { background: rgba(34,211,238,.14); color: var(--accent2); border-color: rgba(34,211,238,.3); }
+        .tool-card.soon { opacity: .62; cursor: not-allowed; }
+        .tool-card.soon:hover { transform: none; border-color: var(--card-border); }
+        .tool-card.soon .t-ico { filter: grayscale(.6); }
+        .tool-card .arrow { position: absolute; bottom: 14px; right: 16px; color: var(--faint); font-size: 13px; opacity: 0; transition: opacity .2s ease, transform .2s ease; }
+        .tool-card.ready:hover .arrow { opacity: 1; transform: translateX(2px); color: var(--accent2); }
+
+        .tool-card .glow { position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; border-radius: 50%; filter: blur(40px); opacity: .4; background: var(--accent); }
+
+        footer { text-align: center; color: var(--faint); font-size: 12.5px; margin-top: 44px; }
+        footer b { color: var(--muted); }
+
+        @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="wrap">
+        <header class="top">
+            <div class="brand-logo"><i class="fa-solid fa-database"></i></div>
+            <h1>Database Tools</h1>
+            <p>A growing suite of tools to inspect, compare and clean up your Frappe site databases.</p>
+            <span class="badge-ct"><b>{{ tools|length }}</b> tools &middot; <b>{{ tools|selectattr('status', 'equalto', 'ready')|list|length }}</b> available</span>
+        </header>
+
+        <div class="grid">
+            {% for tool in tools %}
+            <a class="tool-card {{ 'ready' if tool.status == 'ready' else 'soon' }}"
+               href="{{ tool.route if tool.status == 'ready' else 'javascript:void(0)' }}"
+               {% if tool.status != 'ready' %}onclick="return false;"{% endif %}>
+                <div class="glow"></div>
+                <span class="num">{{ tool.number }}</span>
+                <div class="t-ico"><i class="{{ tool.icon }}"></i></div>
+                <div class="t-body">
+                    <div class="t-title">
+                        <h3>{{ tool.name }}</h3>
+                        {% if tool.star %}<i class="fa-solid fa-star" style="color:var(--amber);font-size:13px"></i>{% endif %}
+                    </div>
+                    <p>{{ tool.description }}</p>
+                </div>
+                <div class="t-status">
+                    {% if tool.status == 'ready' %}
+                        <i class="fa-solid fa-circle-check"></i> Available
+                    {% else %}
+                        <i class="fa-solid fa-hourglass-half"></i> Coming Soon
+                    {% endif %}
+                </div>
+                <i class="fa-solid fa-arrow-right arrow"></i>
+            </a>
+            {% endfor %}
+        </div>
+
+        <footer>Powered by <b>db_tools</b> &middot; each tool lives in <code>db_tools.backend</code></footer>
+    </div>
+
+</body>
+</html>

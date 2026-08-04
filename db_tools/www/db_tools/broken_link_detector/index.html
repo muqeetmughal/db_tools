@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broken Link Detector · Database Tools</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg1: #0a0f22; --bg2: #101735;
+            --card: rgba(255,255,255,.045); --card-border: rgba(255,255,255,.09);
+            --card-hover: rgba(255,255,255,.07);
+            --text: #e9ecf8; --muted: #97a3c8; --faint: #5c6a93;
+            --accent: #6d5ef0; --accent2: #22d3ee;
+            --green: #34d399; --amber: #f59e0b; --rose: #f43f5e;
+            --radius: 18px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "Inter", system-ui, sans-serif; color: var(--text);
+            background:
+                radial-gradient(1000px 500px at 12% -10%, rgba(109,94,240,.18), transparent 60%),
+                radial-gradient(900px 500px at 88% -12%, rgba(34,211,238,.13), transparent 60%),
+                linear-gradient(160deg, var(--bg1), var(--bg2));
+            min-height: 100vh; overflow-x: hidden;
+        }
+        .blob { position: fixed; border-radius: 50%; filter: blur(90px); opacity: .5; z-index: 0; pointer-events: none; }
+        .blob-1 { width: 480px; height: 480px; background: #6d5ef0; top: -140px; left: -120px; animation: drift 18s ease-in-out infinite; }
+        .blob-2 { width: 420px; height: 420px; background: #22d3ee; bottom: -160px; right: -120px; animation: drift 22s ease-in-out infinite reverse; }
+        @keyframes drift { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(60px,-50px) scale(1.08); } 66% { transform: translate(-50px,40px) scale(.94); } }
+
+        .wrap { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 32px 24px 60px; }
+
+        header.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+        .brand { display: flex; align-items: center; gap: 16px; }
+        .back-btn { width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; background: var(--card); border: 1px solid var(--card-border); color: var(--text); display: grid; place-items: center; font-size: 15px; text-decoration: none; transition: all .2s ease; }
+        .back-btn:hover { background: var(--card-hover); border-color: rgba(255,255,255,.2); transform: translateX(-2px); }
+        .brand-logo { width: 52px; height: 52px; border-radius: 15px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: grid; place-items: center; font-size: 22px; color: #fff; box-shadow: 0 10px 30px rgba(109,94,240,.45); }
+        .brand h1 { font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
+        .brand p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+        .brand p .dot { color: var(--green); }
+
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn { display: inline-flex; align-items: center; gap: 9px; padding: 11px 18px; border-radius: 12px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--card-border); color: var(--text); background: var(--card); transition: all .2s ease; font-family: inherit; }
+        .btn:hover { background: var(--card-hover); transform: translateY(-1px); }
+        .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; color: #fff; box-shadow: 0 8px 22px rgba(109,94,240,.35); }
+        .btn.primary:hover { box-shadow: 0 10px 28px rgba(109,94,240,.5); }
+        .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+        .panel { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 20px; margin-bottom: 18px; }
+        .panel h3 { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+        .panel h3 i { color: var(--accent2); }
+        .panel .sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
+        .filters { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+        .fgroup { display: flex; flex-direction: column; gap: 6px; }
+        .fgroup label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 700; }
+        .fgroup input[type=text], .fgroup input[type=number], .fgroup select {
+            background: rgba(0,0,0,.25); border: 1px solid var(--card-border); color: var(--text);
+            border-radius: 11px; padding: 10px 14px; font-size: 13.5px; font-family: inherit; outline: none; min-width: 180px;
+        }
+        .fgroup select option { background: #141b3a; }
+        .checks { display: flex; gap: 18px; align-items: center; padding-bottom: 6px; flex-wrap: wrap; }
+        .check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); cursor: pointer; }
+        .check input { accent-color: var(--accent2); width: 16px; height: 16px; cursor: pointer; }
+
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 18px; }
+        .stat { position: relative; overflow: hidden; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; transition: transform .2s ease; }
+        .stat:hover { transform: translateY(-3px); }
+        .stat .glow { position: absolute; top: -40px; right: -40px; width: 110px; height: 110px; border-radius: 50%; filter: blur(38px); opacity: .45; }
+        .stat .ico { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-size: 16px; margin-bottom: 12px; }
+        .stat .num { font-size: 27px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+        .stat .lbl { font-size: 11.5px; color: var(--muted); margin-top: 7px; font-weight: 500; }
+
+        .chips-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .grp-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 600; border: 1px solid var(--card-border); background: var(--card); }
+        .grp-chip b { font-size: 13px; }
+        .sev-crit { color: var(--rose); } .sev-warn { color: var(--amber); } .sev-info { color: var(--accent2); }
+        .grp-chip.sev-crit, .grp-chip.sev-warn, .grp-chip.sev-info { background: rgba(0,0,0,.22); }
+
+        .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+        .search { flex: 1; min-width: 220px; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,.25); border: 1px solid var(--card-border); border-radius: 11px; padding: 10px 14px; color: var(--muted); }
+        .search input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-size: 13.5px; font-family: inherit; }
+        .search input::placeholder { color: var(--faint); }
+        select { background: rgba(0,0,0,.25); border: 1px solid var(--card-border); color: var(--text); border-radius: 11px; padding: 10px 14px; font-size: 13.5px; font-family: inherit; outline: none; cursor: pointer; }
+        select option { background: #141b3a; }
+        .count-label { font-size: 12.5px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+        .table-scroll { overflow: auto; border-radius: 14px; border: 1px solid var(--card-border); }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        thead th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); padding: 13px 14px; font-weight: 700; background: rgba(255,255,255,.03); border-bottom: 1px solid var(--card-border); cursor: pointer; user-select: none; white-space: nowrap; }
+        thead th:hover { color: var(--text); }
+        thead th .sort-ico { font-size: 10px; margin-left: 6px; opacity: .6; }
+        tbody td { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 13px; }
+        tbody tr { transition: background .15s ease; }
+        tbody tr:hover { background: var(--card-hover); }
+        .mono { font-family: "JetBrains Mono", monospace; font-size: 12px; }
+        .dt-name { font-weight: 600; }
+        .sev-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+        .sev-badge.critical { background: rgba(244,63,94,.14); color: var(--rose); border: 1px solid rgba(244,63,94,.35); }
+        .sev-badge.warning { background: rgba(245,158,11,.14); color: var(--amber); border: 1px solid rgba(245,158,11,.35); }
+        .sev-badge.info { background: rgba(34,211,238,.12); color: var(--accent2); border: 1px solid rgba(34,211,238,.3); }
+        .reason { color: var(--muted); }
+        .value { color: var(--accent2); }
+
+        .issue-box { border-left: 3px solid var(--amber); padding: 10px 14px; margin-bottom: 8px; background: rgba(0,0,0,.2); border-radius: 0 10px 10px 0; font-size: 13px; }
+        .issue-box b { color: var(--amber); }
+
+        .empty { text-align: center; padding: 46px 20px; color: var(--muted); }
+        .empty i { font-size: 38px; color: var(--green); margin-bottom: 12px; }
+        .empty h3 { color: var(--text); font-size: 16px; margin-bottom: 5px; }
+
+        .skeleton { border-radius: 10px; background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.12), rgba(255,255,255,.05)); background-size: 200% 100%; animation: shimmer 1.3s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .overlay { position: fixed; inset: 0; background: rgba(8,12,30,.7); backdrop-filter: blur(6px); display: none; place-items: center; z-index: 50; }
+        .overlay.show { display: grid; }
+        .spinner { width: 58px; height: 58px; border-radius: 50%; margin: 0 auto 18px; border: 4px solid rgba(255,255,255,.12); border-top-color: var(--accent2); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-box p { color: var(--muted); font-size: 14px; font-weight: 500; text-align: center; }
+
+        .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); background: #141b3a; border: 1px solid rgba(255,255,255,.14); color: var(--text); padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 500; box-shadow: 0 14px 40px rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 60; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        footer { text-align: center; color: var(--faint); font-size: 12px; margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 18px; }
+        footer a { color: var(--accent2); text-decoration: none; font-weight: 600; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 960px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 640px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</head>
+<body>
+
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <div class="wrap">
+
+        <header class="top">
+            <div class="brand">
+                <a class="back-btn" href="/db_tools" title="All tools"><i class="fa-solid fa-arrow-left"></i></a>
+                <div class="brand-logo"><i class="fa-solid fa-link-slash"></i></div>
+                <div>
+                    <h1>Broken Link Detector</h1>
+                    <p><span class="dot">●</span>&nbsp; Validates Link &amp; Dynamic Link fields against live documents</p>
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn primary" id="btnRun"><i class="fa-solid fa-play"></i> Run Scan</button>
+                <button class="btn" id="btnJson"><i class="fa-solid fa-code"></i> JSON</button>
+                <button class="btn" id="btnCsv"><i class="fa-solid fa-file-csv"></i> CSV</button>
+                <button class="btn" id="btnMd"><i class="fa-solid fa-file-lines"></i> Markdown</button>
+            </div>
+        </header>
+
+        <div class="panel">
+            <h3><i class="fa-solid fa-sliders"></i> Scan Options</h3>
+            <div class="sub">Strictly read-only · batched JOIN queries · no per-row lookups</div>
+            <div class="filters">
+                <div class="fgroup">
+                    <label>DocTypes</label>
+                    <input id="fDoctype" type="text" placeholder="All (comma separated)">
+                </div>
+                <div class="fgroup">
+                    <label>Severity</label>
+                    <select id="fSeverity">
+                        <option value="">All severities</option>
+                        <option value="critical">Critical</option>
+                        <option value="warning">Warning</option>
+                        <option value="info">Info</option>
+                    </select>
+                </div>
+                <div class="fgroup">
+                    <label>Max Findings</label>
+                    <input id="fLimit" type="number" value="5000" min="0">
+                </div>
+                <div class="fgroup">
+                    <label>&nbsp;</label>
+                    <div class="checks">
+                        <label class="check"><input id="fDynamic" type="checkbox" checked> Include Dynamic Links</label>
+                        <label class="check"><input id="fChild" type="checkbox" checked> Include Child Tables</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="cards" id="cards">
+            <div class="stat"><div class="glow" style="background:var(--accent2)"></div><div class="ico" style="background:rgba(34,211,238,.14);color:var(--accent2)"><i class="fa-solid fa-cubes"></i></div><div class="num skeleton" style="width:54px;height:27px"></div><div class="lbl">DocTypes Scanned</div></div>
+            <div class="stat"><div class="glow" style="background:var(--violet,#a78bfa)"></div><div class="ico" style="background:rgba(167,139,250,.14);color:#a78bfa"><i class="fa-solid fa-link"></i></div><div class="num skeleton" style="width:54px;height:27px"></div><div class="lbl">Link Fields</div></div>
+            <div class="stat"><div class="glow" style="background:var(--accent2)"></div><div class="ico" style="background:rgba(34,211,238,.14);color:var(--accent2)"><i class="fa-solid fa-share-nodes"></i></div><div class="num skeleton" style="width:54px;height:27px"></div><div class="lbl">Dynamic Link Fields</div></div>
+            <div class="stat"><div class="glow" style="background:#a78bfa"></div><div class="ico" style="background:rgba(167,139,250,.14);color:#a78bfa"><i class="fa-solid fa-magnifying-glass"></i></div><div class="num skeleton" style="width:54px;height:27px"></div><div class="lbl">Records Checked</div></div>
+            <div class="stat"><div class="glow" style="background:var(--rose)"></div><div class="ico" style="background:rgba(244,63,94,.14);color:var(--rose)"><i class="fa-solid fa-broken-heart"></i></div><div class="num skeleton" style="width:54px;height:27px"></div><div class="lbl">Broken Links</div></div>
+            <div class="stat"><div class="glow" style="background:var(--amber)"></div><div class="ico" style="background:rgba(245,158,11,.14);color:var(--amber)"><i class="fa-solid fa-gears"></i></div><div class="num skeleton" style="width:54px;height:27px"></div><div class="lbl">Config Issues</div></div>
+            <div class="stat"><div class="glow" style="background:var(--green)"></div><div class="ico" style="background:rgba(52,211,153,.14);color:var(--green)"><i class="fa-solid fa-stopwatch"></i></div><div class="num skeleton" style="width:54px;height:27px"></div><div class="lbl">Duration (s)</div></div>
+        </div>
+
+        <div class="panel" id="groupPanel" style="display:none">
+            <h3><i class="fa-solid fa-chart-pie"></i> Breakdown</h3>
+            <div class="sub">Findings grouped by severity and source DocType</div>
+            <div class="chips-row" id="chipsRow"></div>
+        </div>
+
+        <div class="panel" id="issuePanel" style="display:none">
+            <h3><i class="fa-solid fa-triangle-exclamation"></i> Configuration Issues</h3>
+            <div class="sub">Metadata problems — reported separately from broken data</div>
+            <div id="issueBox"></div>
+        </div>
+
+        <div class="panel">
+            <h3><i class="fa-solid fa-table-list"></i> Findings</h3>
+            <div class="sub">Broken references that need attention</div>
+            <div class="toolbar">
+                <div class="search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="searchInput" type="text" placeholder="Search source, field, target or value...">
+                </div>
+                <select id="sevFilter">
+                    <option value="">All severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="warning">Warning</option>
+                    <option value="info">Info</option>
+                </select>
+                <span class="count-label" id="countLabel">0 rows</span>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th data-key="severity">Severity <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="source_doctype">Source DocType <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="source_name">Document <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="fieldname">Field <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="target_doctype">Target DocType <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="value">Value <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="reason">Reason <i class="fa-solid fa-sort sort-ico"></i></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <footer>
+            Powered by <b>db_tools</b> &middot; read-only integrity scan
+            &middot; <a href="/db_tools"><i class="fa-solid fa-grid-2"></i> All tools</a>
+        </footer>
+    </div>
+
+    <div class="overlay" id="overlay">
+        <div class="spinner-box">
+            <div class="spinner"></div>
+            <p>Scanning links across the database…</p>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API = "db_tools.backend.broken_link_detector.api.get_broken_links_report";
+        let data = null;
+        let searchTerm = "", sevFilter = "", sortKey = "severity", sortDir = 1;
+
+        const $ = (id) => document.getElementById(id);
+        const overlay = $("overlay");
+
+        function buildQuery(fmt) {
+            const p = new URLSearchParams();
+            const dt = $("fDoctype").value.trim();
+            if (dt) p.set("doctype", dt);
+            p.set("include_dynamic", $("fDynamic").checked);
+            p.set("include_child_tables", $("fChild").checked);
+            const sev = $("fSeverity").value;
+            if (sev) p.set("severity", sev);
+            const lim = parseInt($("fLimit").value, 10);
+            if (lim > 0) p.set("limit", lim);
+            if (fmt) p.set("fmt", fmt);
+            return p.toString();
+        }
+
+        async function apiCall(fmt) {
+            const url = "/api/method/" + API + "?" + buildQuery(fmt);
+            const res = await fetch(url, { headers: { "Accept": "application/json" } });
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const json = await res.json();
+            if (json.exc) {
+                let msgs = [];
+                try { msgs = (json._server_messages || []).map(m => JSON.parse(m).message); } catch (e) {}
+                throw new Error(msgs.join("\n") || "Server error");
+            }
+            return json.message;
+        }
+
+        async function run() {
+            overlay.classList.add("show");
+            try {
+                data = await apiCall(null);
+                renderAll();
+                toast("Scan complete");
+            } catch (e) {
+                console.error(e);
+                toast("Scan failed: " + (e.message || e));
+            } finally {
+                overlay.classList.remove("show");
+            }
+        }
+
+        function renderAll() {
+            renderCards();
+            renderChips();
+            renderIssues();
+            renderTable();
+        }
+
+        function renderCards() {
+            const s = data.summary;
+            const items = [
+                ["fa-cubes", "rgba(34,211,238,.14)", "var(--accent2)", "var(--accent2)", s.doctypes_scanned, "DocTypes Scanned"],
+                ["fa-link", "rgba(167,139,250,.14)", "#a78bfa", "#a78bfa", s.link_fields_scanned, "Link Fields"],
+                ["fa-share-nodes", "rgba(34,211,238,.14)", "var(--accent2)", "var(--accent2)", s.dynamic_link_fields_scanned, "Dynamic Link Fields"],
+                ["fa-magnifying-glass", "rgba(167,139,250,.14)", "#a78bfa", "#a78bfa", s.records_checked, "Records Checked"],
+                ["fa-broken-heart", "rgba(244,63,94,.14)", "var(--rose)", "var(--rose)", s.broken_links, "Broken Links"],
+                ["fa-gears", "rgba(245,158,11,.14)", "var(--amber)", "var(--amber)", s.config_issues, "Config Issues"],
+                ["fa-stopwatch", "rgba(52,211,153,.14)", "var(--green)", "var(--green)", parseFloat(s.execution_time).toFixed(2), "Duration (s)"],
+            ];
+            $("cards").querySelectorAll(".stat").forEach((card, i) => {
+                const [icon, bg, col, glow, num, lbl] = items[i];
+                card.innerHTML = `
+                    <div class="glow" style="background:${glow}"></div>
+                    <div class="ico" style="background:${bg};color:${col}"><i class="fa-solid fa-${icon}"></i></div>
+                    <div class="num">${num.toLocaleString()}</div>
+                    <div class="lbl">${lbl}</div>`;
+            });
+        }
+
+        function renderChips() {
+            const g = data.grouped;
+            const total = data.findings.length;
+            $("groupPanel").style.display = total || data.summary.broken_links ? "" : "none";
+            if (!total) return;
+            const sevMap = { critical: ["sev-crit", "var(--rose)"], warning: ["sev-warn", "var(--amber)"], info: ["sev-info", "var(--accent2)"] };
+            let html = "";
+            for (const [k, v] of Object.entries(g.by_severity)) {
+                const [cls, col] = sevMap[k] || ["", "var(--muted)"];
+                html += `<span class="grp-chip ${cls}"><i class="fa-solid fa-circle" style="color:${col};font-size:9px"></i>${k} <b>${v}</b></span>`;
+            }
+            const top = Object.entries(g.by_doctype).sort((a, b) => b[1] - a[1]).slice(0, 8);
+            for (const [dt, n] of top) {
+                html += `<span class="grp-chip"><i class="fa-solid fa-database" style="color:var(--muted)"></i>${dt} <b>${n}</b></span>`;
+            }
+            $("chipsRow").innerHTML = html;
+        }
+
+        function renderIssues() {
+            const issues = data.config_issues || [];
+            $("issuePanel").style.display = issues.length ? "" : "none";
+            $("issueBox").innerHTML = issues.map(c =>
+                `<div class="issue-box"><i class="fa-solid fa-triangle-exclamation"></i> <b>${c.doctype}.${c.fieldname}</b> — ${c.message}</div>`
+            ).join("");
+        }
+
+        function filteredFindings() {
+            let rows = data.findings.slice();
+            if (sevFilter) rows = rows.filter(f => f.severity === sevFilter);
+            if (searchTerm) {
+                const q = searchTerm.toLowerCase();
+                rows = rows.filter(f =>
+                    [f.source_doctype, f.source_name, f.fieldname, f.target_doctype, f.value, f.reason]
+                        .some(v => (v || "").toLowerCase().includes(q)));
+            }
+            rows.sort((a, b) => {
+                let va = a[sortKey], vb = b[sortKey];
+                if (typeof va === "string") { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+                if (va < vb) return -1 * sortDir;
+                if (va > vb) return 1 * sortDir;
+                return 0;
+            });
+            return rows;
+        }
+
+        function sevClass(s) { return s === "critical" ? "critical" : s === "warning" ? "warning" : "info"; }
+
+        function renderTable() {
+            const rows = filteredFindings();
+            $("countLabel").textContent = rows.length + " row" + (rows.length === 1 ? "" : "s");
+            if (!rows.length) {
+                $("tbody").innerHTML = `
+                    <tr><td colspan="7">
+                        <div class="empty">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <h3>No broken links found</h3>
+                            <p>Every checked reference resolves to an existing document.</p>
+                        </div>
+                    </td></tr>`;
+                return;
+            }
+            $("tbody").innerHTML = rows.map(f => `
+                <tr>
+                    <td><span class="sev-badge ${sevClass(f.severity)}"><i class="fa-solid ${f.severity === 'critical' ? 'fa-circle-exclamation' : f.severity === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info'}"></i>${f.severity}</span></td>
+                    <td class="dt-name">${f.source_doctype}</td>
+                    <td><span class="mono">${f.source_name}</span></td>
+                    <td><span class="mono">${f.fieldname}</span></td>
+                    <td class="dt-name">${f.target_doctype}</td>
+                    <td><span class="mono value">${f.value}</span></td>
+                    <td class="reason">${f.reason}</td>
+                </tr>`).join("");
+        }
+
+        async function download(fmt, filename) {
+            if (!data && fmt !== "json") { toast("Run a scan first"); return; }
+            try {
+                const msg = await apiCall(fmt);
+                const content = msg.data;
+                const mime = fmt === "csv" ? "text/csv" : fmt === "markdown" ? "text/markdown" : "application/json";
+                const blob = new Blob([content], { type: mime + ";charset=utf-8" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                toast("Downloaded " + filename);
+            } catch (e) {
+                toast("Download failed: " + (e.message || e));
+            }
+        }
+
+        let toastTimer = null;
+        function toast(msg) {
+            const t = $("toast");
+            t.textContent = msg;
+            t.classList.add("show");
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+        }
+
+        $("btnRun").addEventListener("click", run);
+        $("btnJson").addEventListener("click", () => download("json", "broken_links.json"));
+        $("btnCsv").addEventListener("click", () => download("csv", "broken_links.csv"));
+        $("btnMd").addEventListener("click", () => download("markdown", "broken_links.md"));
+
+        $("searchInput").addEventListener("input", (e) => { searchTerm = e.target.value.trim(); renderTable(); });
+        $("sevFilter").addEventListener("change", (e) => { sevFilter = e.target.value; renderTable(); });
+
+        document.querySelectorAll("thead th[data-key]").forEach(th => {
+            th.addEventListener("click", () => {
+                const key = th.dataset.key;
+                if (sortKey === key) { sortDir *= -1; } else { sortKey = key; sortDir = 1; }
+                document.querySelectorAll("thead th").forEach(t => {
+                    t.querySelector(".sort-ico").className = "fa-solid fa-sort sort-ico";
+                });
+                const ico = th.querySelector(".sort-ico");
+                ico.className = sortDir === 1 ? "fa-solid fa-arrow-up-wide-short sort-ico" : "fa-solid fa-arrow-down-short-wide sort-ico";
+                renderTable();
+            });
+        });
+
+        run();
+    </script>
+</body>
+</html>

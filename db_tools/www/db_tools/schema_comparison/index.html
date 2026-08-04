@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schema Comparison · Database Tools</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg1: #0a0f22;
+            --bg2: #101735;
+            --card: rgba(255, 255, 255, 0.045);
+            --card-border: rgba(255, 255, 255, 0.09);
+            --card-hover: rgba(255, 255, 255, 0.07);
+            --text: #e9ecf8;
+            --muted: #97a3c8;
+            --faint: #5c6a93;
+            --accent: #6d5ef0;
+            --accent2: #22d3ee;
+            --rose: #f43f5e;
+            --amber: #f59e0b;
+            --green: #34d399;
+            --violet: #a78bfa;
+            --radius: 18px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: "Inter", system-ui, -apple-system, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1000px 500px at 12% -10%, rgba(109, 94, 240, 0.18), transparent 60%),
+                radial-gradient(900px 500px at 88% -12%, rgba(34, 211, 238, 0.13), transparent 60%),
+                linear-gradient(160deg, var(--bg1), var(--bg2));
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* animated background blobs */
+        .blob { position: fixed; border-radius: 50%; filter: blur(90px); opacity: .5; z-index: 0; pointer-events: none; }
+        .blob-1 { width: 480px; height: 480px; background: #6d5ef0; top: -140px; left: -120px; animation: drift 18s ease-in-out infinite; }
+        .blob-2 { width: 420px; height: 420px; background: #22d3ee; bottom: -160px; right: -120px; animation: drift 22s ease-in-out infinite reverse; }
+        .blob-3 { width: 360px; height: 360px; background: #f43f5e; top: 40%; left: 55%; opacity: .22; animation: drift 26s ease-in-out infinite; }
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(60px, -50px) scale(1.08); }
+            66% { transform: translate(-50px, 40px) scale(.94); }
+        }
+
+        .wrap { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 32px 24px 60px; }
+
+        /* ---------- header ---------- */
+        header.top {
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            flex-wrap: wrap; margin-bottom: 26px;
+        }
+        .brand { display: flex; align-items: center; gap: 16px; }
+        .back-btn {
+            width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px;
+            background: var(--card); border: 1px solid var(--card-border); color: var(--text);
+            display: grid; place-items: center; font-size: 15px; text-decoration: none;
+            transition: all .2s ease;
+        }
+        .back-btn:hover { background: var(--card-hover); border-color: rgba(255,255,255,.2); transform: translateX(-2px); }
+        .brand-logo {
+            width: 52px; height: 52px; border-radius: 15px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: grid; place-items: center; font-size: 22px; color: #fff;
+            box-shadow: 0 10px 30px rgba(109, 94, 240, .45);
+        }
+        .brand h1 { font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
+        .brand p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+        .brand p .dot { color: var(--green); }
+
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 9px;
+            padding: 11px 18px; border-radius: 12px; font-size: 13.5px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--card-border); color: var(--text);
+            background: var(--card); transition: all .2s ease; font-family: inherit;
+        }
+        .btn:hover { background: var(--card-hover); transform: translateY(-1px); }
+        .btn.primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none; color: #fff; box-shadow: 0 8px 22px rgba(109, 94, 240, .35);
+        }
+        .btn.primary:hover { box-shadow: 0 10px 28px rgba(109, 94, 240, .5); }
+        .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+        .btn i { font-size: 14px; }
+
+        /* ---------- cards ---------- */
+        .cards {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 16px; margin-bottom: 22px;
+        }
+        .stat {
+            position: relative; overflow: hidden;
+            background: var(--card); border: 1px solid var(--card-border);
+            border-radius: var(--radius); padding: 20px;
+            transition: transform .2s ease, border-color .2s ease;
+        }
+        .stat:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.18); }
+        .stat .glow { position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; border-radius: 50%; filter: blur(40px); opacity: .5; }
+        .stat .ico {
+            width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+            font-size: 18px; margin-bottom: 14px;
+        }
+        .stat .num { font-size: 34px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+        .stat .lbl { font-size: 12.5px; color: var(--muted); margin-top: 8px; font-weight: 500; }
+        .s1 .ico { background: rgba(34,211,238,.14); color: var(--accent2); } .s1 .glow { background: var(--accent2); }
+        .s2 .ico { background: rgba(167,139,250,.14); color: var(--violet); } .s2 .glow { background: var(--violet); }
+        .s3 .ico { background: rgba(245,158,11,.14); color: var(--amber); } .s3 .glow { background: var(--amber); }
+        .s4 .ico { background: rgba(244,63,94,.14); color: var(--rose); } .s4 .glow { background: var(--rose); }
+
+        /* ---------- charts ---------- */
+        .charts {
+            display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; margin-bottom: 22px;
+        }
+        .panel {
+            background: var(--card); border: 1px solid var(--card-border);
+            border-radius: var(--radius); padding: 20px;
+        }
+        .panel h3 { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+        .panel h3 i { color: var(--accent2); font-size: 14px; }
+        .panel .sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+        .chart-box { position: relative; height: 300px; }
+
+        /* ---------- table ---------- */
+        .toolbar {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .search {
+            flex: 1; min-width: 220px; display: flex; align-items: center; gap: 10px;
+            background: rgba(0,0,0,.25); border: 1px solid var(--card-border);
+            border-radius: 11px; padding: 10px 14px; color: var(--muted);
+        }
+        .search input {
+            flex: 1; background: transparent; border: none; outline: none;
+            color: var(--text); font-size: 13.5px; font-family: inherit;
+        }
+        .search input::placeholder { color: var(--faint); }
+        select {
+            background: rgba(0,0,0,.25); border: 1px solid var(--card-border);
+            color: var(--text); border-radius: 11px; padding: 10px 14px;
+            font-size: 13.5px; font-family: inherit; outline: none; cursor: pointer;
+        }
+        select option { background: #141b3a; }
+        .count-label { font-size: 12.5px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+        .table-scroll { overflow: auto; border-radius: 14px; border: 1px solid var(--card-border); }
+        table { width: 100%; border-collapse: collapse; min-width: 760px; }
+        thead th {
+            text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .8px;
+            color: var(--muted); padding: 13px 16px; font-weight: 700;
+            background: rgba(255,255,255,.03); border-bottom: 1px solid var(--card-border);
+            cursor: pointer; user-select: none; white-space: nowrap;
+        }
+        thead th:hover { color: var(--text); }
+        thead th i.sort-ico { font-size: 10px; margin-left: 6px; opacity: .6; }
+        tbody td { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 13.5px; }
+        tbody tr { transition: background .15s ease; cursor: pointer; }
+        tbody tr.row:hover { background: var(--card-hover); }
+        .dt-name { font-weight: 600; }
+        .mono { font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: var(--accent2); }
+        .app-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(109,94,240,.16); color: var(--violet);
+            border: 1px solid rgba(109,94,240,.3);
+            padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+        }
+        .count-chip {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 28px; height: 28px; padding: 0 9px; border-radius: 9px;
+            font-weight: 800; font-size: 13px;
+        }
+        .cc-1 { background: rgba(52,211,153,.14); color: var(--green); }
+        .cc-2 { background: rgba(245,158,11,.14); color: var(--amber); }
+        .cc-3 { background: rgba(244,63,94,.16); color: var(--rose); }
+        .chev { color: var(--faint); transition: transform .2s ease; }
+        tr.expanded .chev { transform: rotate(180deg); color: var(--accent2); }
+
+        .detail-row td { background: rgba(0,0,0,.22); padding: 0; }
+        .detail-inner { display: none; padding: 18px 16px; }
+        tr.expanded + .detail-row .detail-inner { display: block; }
+        .detail-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; margin-bottom: 12px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip {
+            font-family: "JetBrains Mono", monospace; font-size: 12px;
+            padding: 6px 12px; border-radius: 8px; border: 1px solid;
+        }
+        .chip i { font-size: 10px; margin-right: 6px; opacity: .8; }
+        .detail-actions { margin-top: 14px; display: flex; gap: 8px; }
+        .mini-btn {
+            display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600;
+            padding: 8px 13px; border-radius: 9px; border: 1px solid var(--card-border);
+            background: var(--card); color: var(--text); cursor: pointer; font-family: inherit;
+            transition: all .15s ease;
+        }
+        .mini-btn:hover { background: var(--card-hover); }
+
+        /* ---------- states ---------- */
+        .skeleton { border-radius: 10px; background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.12), rgba(255,255,255,.05)); background-size: 200% 100%; animation: shimmer 1.3s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .empty {
+            text-align: center; padding: 56px 20px; color: var(--muted);
+        }
+        .empty i { font-size: 42px; color: var(--green); margin-bottom: 14px; }
+        .empty h3 { color: var(--text); font-size: 17px; margin-bottom: 6px; }
+
+        .overlay {
+            position: fixed; inset: 0; background: rgba(8, 12, 30, .7); backdrop-filter: blur(6px);
+            display: none; place-items: center; z-index: 50;
+        }
+        .overlay.show { display: grid; }
+        .spinner-box { text-align: center; }
+        .spinner {
+            width: 58px; height: 58px; border-radius: 50%; margin: 0 auto 18px;
+            border: 4px solid rgba(255,255,255,.12); border-top-color: var(--accent2);
+            animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-box p { color: var(--muted); font-size: 14px; font-weight: 500; }
+
+        .toast {
+            position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: #141b3a; border: 1px solid rgba(255,255,255,.14); color: var(--text);
+            padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 500;
+            box-shadow: 0 14px 40px rgba(0,0,0,.4); opacity: 0; pointer-events: none;
+            transition: all .25s ease; z-index: 60;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        footer {
+            text-align: center; color: var(--faint); font-size: 12px; margin-top: 34px;
+            display: flex; justify-content: center; align-items: center; gap: 18px;
+        }
+        footer a { color: var(--accent2); text-decoration: none; font-weight: 600; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 960px) { .charts { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="wrap">
+
+        <header class="top">
+            <div class="brand">
+                <a class="back-btn" href="/db_tools" title="All tools"><i class="fa-solid fa-arrow-left"></i></a>
+                <div class="brand-logo"><i class="fa-solid fa-columns"></i></div>
+                <div>
+                    <h1>Schema Comparison</h1>
+                    <p><span class="dot">●</span>&nbsp; Compares each app's DocType JSON schema against the live database</p>
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn" id="btnScan"><i class="fa-solid fa-rotate"></i> Scan Again</button>
+                <button class="btn" id="btnDownload"><i class="fa-solid fa-download"></i> Download JSON</button>
+            </div>
+        </header>
+
+        <div class="cards" id="cards">
+            <div class="stat s1"><div class="glow"></div><div class="ico"><i class="fa-solid fa-layer-group"></i></div><div class="num skeleton" style="width:60px;height:34px"></div><div class="lbl">Apps Scanned</div></div>
+            <div class="stat s2"><div class="glow"></div><div class="ico"><i class="fa-solid fa-cubes"></i></div><div class="num skeleton" style="width:60px;height:34px"></div><div class="lbl">DocTypes Scanned</div></div>
+            <div class="stat s3"><div class="glow"></div><div class="ico"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="num skeleton" style="width:60px;height:34px"></div><div class="lbl">DocTypes with Extras</div></div>
+            <div class="stat s4"><div class="glow"></div><div class="ico"><i class="fa-solid fa-square-poll-vertical"></i></div><div class="num skeleton" style="width:60px;height:34px"></div><div class="lbl">Extra Columns Found</div></div>
+        </div>
+
+        <div class="charts">
+            <div class="panel">
+                <h3><i class="fa-solid fa-chart-column"></i> Extra Columns per DocType</h3>
+                <div class="sub">Top offenders across all scanned apps</div>
+                <div class="chart-box"><canvas id="barChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <h3><i class="fa-solid fa-chart-pie"></i> Distribution by App</h3>
+                <div class="sub">Total extra columns contributed per app</div>
+                <div class="chart-box"><canvas id="pieChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3><i class="fa-solid fa-table-list"></i> Detailed Report</h3>
+            <div class="sub">Click a row to inspect the extra columns</div>
+            <div class="toolbar">
+                <div class="search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="searchInput" type="text" placeholder="Search app, doctype, table or column...">
+                </div>
+                <select id="appFilter">
+                    <option value="all">All apps</option>
+                </select>
+                <span class="count-label" id="countLabel">0 rows</span>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th data-key="app">App <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="doctype">DocType <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="table">Table <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th data-key="count">Extra Columns <i class="fa-solid fa-sort sort-ico"></i></th>
+                            <th style="cursor:default; width:40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <footer>
+            Powered by <b>db_tools</b> &middot; scans <code>apps/*/*/doctype/*/*.json</code> schemas against live tables
+            &middot; <a href="/db_tools"><i class="fa-solid fa-grid-2"></i> All tools</a>
+        </footer>
+    </div>
+
+    <div class="overlay" id="overlay">
+        <div class="spinner-box">
+            <div class="spinner"></div>
+            <p>Scanning apps &amp; comparing schemas…</p>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API = "db_tools.backend.schema_comparison.api.get_extra_db_columns_report";
+        const CHIP_COLORS = [
+            { bg: "rgba(109,94,240,.15)", border: "rgba(109,94,240,.4)", fg: "#a78bfa" },
+            { bg: "rgba(34,211,238,.15)", border: "rgba(34,211,238,.4)", fg: "#22d3ee" },
+            { bg: "rgba(52,211,153,.15)", border: "rgba(52,211,153,.4)", fg: "#34d399" },
+            { bg: "rgba(245,158,11,.15)", border: "rgba(245,158,11,.4)", fg: "#fbbf24" },
+            { bg: "rgba(244,63,94,.15)", border: "rgba(244,63,94,.4)", fg: "#fb7185" },
+            { bg: "rgba(232,121,249,.15)", border: "rgba(232,121,249,.4)", fg: "#e879f9" },
+        ];
+
+        let data = null;
+        let barChart = null, pieChart = null;
+        let searchTerm = "", appFilter = "all", sortKey = "doctype", sortDir = 1;
+
+        const $ = (id) => document.getElementById(id);
+        const overlay = $("overlay");
+
+        async function apiCall() {
+            const res = await fetch("/api/method/" + API, {
+                headers: { "Accept": "application/json" },
+            });
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const json = await res.json();
+            if (json.exc) {
+                let msgs = [];
+                try {
+                    msgs = (json._server_messages || []).map(m => JSON.parse(m).message);
+                } catch (e) {}
+                throw new Error(msgs.join("\n") || "Server error");
+            }
+            return json.message;
+        }
+
+        async function load(showOverlay = true) {
+            if (showOverlay) overlay.classList.add("show");
+            try {
+                data = await apiCall();
+                renderAll();
+            } catch (e) {
+                console.error(e);
+                toast("Failed to load report: " + (e.message || e));
+            } finally {
+                overlay.classList.remove("show");
+            }
+        }
+
+        function renderAll() {
+            const s = data.summary;
+            const nums = [s.apps_scanned, s.doctypes_scanned, s.doctypes_affected, s.total_extra_columns];
+            const ids = ["num1", "num2", "num3", "num4"];
+            $("cards").querySelectorAll(".stat").forEach((card, i) => {
+                card.innerHTML = cardHTML(i, nums[i]);
+            });
+            animateNumbers(ids, nums);
+            renderCharts();
+            buildAppFilter();
+            renderTable();
+        }
+
+        function cardHTML(i, val) {
+            const icons = ["fa-layer-group", "fa-cubes", "fa-triangle-exclamation", "fa-square-poll-vertical"];
+            const labels = ["Apps Scanned", "DocTypes Scanned", "DocTypes with Extras", "Extra Columns Found"];
+            const cls = ["s1", "s2", "s3", "s4"];
+            const glows = ["var(--accent2)", "var(--violet)", "var(--amber)", "var(--rose)"];
+            const icos = ["rgba(34,211,238,.14)", "rgba(167,139,250,.14)", "rgba(245,158,11,.14)", "rgba(244,63,94,.14)"];
+            const cols = ["var(--accent2)", "var(--violet)", "var(--amber)", "var(--rose)"];
+            return `
+                <div class="glow" style="background:${glows[i]}"></div>
+                <div class="ico" style="background:${icos[i]};color:${cols[i]}"><i class="fa-solid fa-${icons[i]}"></i></div>
+                <div class="num" id="${["num1","num2","num3","num4"][i]}">0</div>
+                <div class="lbl">${labels[i]}</div>`;
+        }
+
+        function animateNumbers(ids, nums) {
+            ids.forEach((id, i) => {
+                const el = $(id); if (!el) return;
+                const target = nums[i];
+                const dur = 900, start = performance.now();
+                function step(now) {
+                    const p = Math.min((now - start) / dur, 1);
+                    const eased = 1 - Math.pow(1 - p, 3);
+                    el.textContent = Math.round(target * eased).toLocaleString();
+                    if (p < 1) requestAnimationFrame(step);
+                }
+                requestAnimationFrame(step);
+            });
+        }
+
+        function renderCharts() {
+            const labels = ["#22d3ee", "#a78bfa", "#fbbf24", "#fb7185", "#34d399", "#60a5fa", "#e879f9", "#f472b6", "#4ade80", "#38bdf8"];
+            if (barChart) barChart.destroy();
+            if (pieChart) pieChart.destroy();
+
+            const top = data.report.slice()
+                .sort((a, b) => b.extra_columns.length - a.extra_columns.length)
+                .slice(0, 12)
+                .reverse();
+
+            const ctxBar = $("barChart").getContext("2d");
+            const grad = ctxBar.createLinearGradient(0, 0, 0, 300);
+            grad.addColorStop(0, "rgba(109,94,240,.9)");
+            grad.addColorStop(1, "rgba(34,211,238,.6)");
+
+            barChart = new Chart(ctxBar, {
+                type: "bar",
+                data: {
+                    labels: top.map(r => r.doctype),
+                    datasets: [{
+                        data: top.map(r => r.extra_columns.length),
+                        backgroundColor: grad,
+                        hoverBackgroundColor: "rgba(167,139,250,1)",
+                        borderRadius: 7,
+                        maxBarThickness: 44,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: "y",
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: "#141b3a",
+                            borderColor: "rgba(255,255,255,.14)",
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: (c) => ` ${c.parsed.x} extra column${c.parsed.x === 1 ? "" : "s"}`,
+                            },
+                        },
+                    },
+                    scales: {
+                        x: { grid: { color: "rgba(255,255,255,.06)" }, ticks: { color: "#97a3c8", precision: 0 } },
+                        y: { grid: { display: false }, ticks: { color: "#97a3c8", font: { size: 12 } } },
+                    },
+                },
+            });
+
+            const byApp = {};
+            data.report.forEach(r => {
+                byApp[r.app] = (byApp[r.app] || 0) + r.extra_columns.length;
+            });
+            const appNames = Object.keys(byApp).sort((a, b) => byApp[b] - byApp[a]);
+
+            pieChart = new Chart($("pieChart").getContext("2d"), {
+                type: "doughnut",
+                data: {
+                    labels: appNames,
+                    datasets: [{
+                        data: appNames.map(a => byApp[a]),
+                        backgroundColor: labels.slice(0, appNames.length),
+                        borderColor: "#0d1330",
+                        borderWidth: 3,
+                        hoverOffset: 8,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "62%",
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: { color: "#97a3c8", boxWidth: 10, boxHeight: 10, padding: 12, usePointStyle: true },
+                        },
+                        tooltip: {
+                            backgroundColor: "#141b3a",
+                            borderColor: "rgba(255,255,255,.14)",
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: (c) => ` ${c.label}: ${c.parsed} column${c.parsed === 1 ? "" : "s"}`,
+                            },
+                        },
+                    },
+                },
+            });
+        }
+
+        function buildAppFilter() {
+            const sel = $("appFilter");
+            const apps = [...new Set(data.report.map(r => r.app))].sort();
+            sel.innerHTML = '<option value="all">All apps</option>' +
+                apps.map(a => `<option value="${a}">${a}</option>`).join("");
+        }
+
+        function filteredRows() {
+            let rows = data.report.slice();
+            if (appFilter !== "all") rows = rows.filter(r => r.app === appFilter);
+            if (searchTerm) {
+                const q = searchTerm.toLowerCase();
+                rows = rows.filter(r =>
+                    r.app.toLowerCase().includes(q) ||
+                    r.doctype.toLowerCase().includes(q) ||
+                    r.table.toLowerCase().includes(q) ||
+                    r.extra_columns.some(c => c.toLowerCase().includes(q)));
+            }
+            rows.sort((a, b) => {
+                let va = a[sortKey], vb = b[sortKey];
+                if (sortKey === "count") { va = a.extra_columns.length; vb = b.extra_columns.length; }
+                if (typeof va === "string") { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+                if (va < vb) return -1 * sortDir;
+                if (va > vb) return 1 * sortDir;
+                return 0;
+            });
+            return rows;
+        }
+
+        function countClass(n) { return n > 10 ? "cc-3" : n > 3 ? "cc-2" : "cc-1"; }
+
+        function renderTable() {
+            const rows = filteredRows();
+            $("countLabel").textContent = rows.length + " row" + (rows.length === 1 ? "" : "s");
+
+            if (!rows.length) {
+                $("tbody").innerHTML = `
+                    <tr><td colspan="5">
+                        <div class="empty">
+                            <i class="fa-solid fa-check-double"></i>
+                            <h3>${data.report.length ? "No rows match your filters" : "No extra columns found"}</h3>
+                            <p>${data.report.length ? "Try clearing the search or picking a different app." : "Every scanned DocType matches its schema. Everything looks clean!"}</p>
+                        </div>
+                    </td></tr>`;
+                return;
+            }
+
+            $("tbody").innerHTML = rows.map((r, i) => `
+                <tr class="row" data-i="${i}">
+                    <td><span class="app-badge"><i class="fa-brands fa-connectdevelop"></i>${r.app}</span></td>
+                    <td class="dt-name">${r.doctype}</td>
+                    <td><span class="mono">${r.table}</span></td>
+                    <td><span class="count-chip ${countClass(r.extra_columns.length)}">${r.extra_columns.length}</span></td>
+                    <td><i class="fa-solid fa-chevron-down chev"></i></td>
+                </tr>
+                <tr class="detail-row" data-i="${i}">
+                    <td colspan="5">
+                        <div class="detail-inner">
+                            <div class="detail-title"><i class="fa-solid fa-list-ul"></i>&nbsp; Extra columns in <span class="mono" style="color:var(--accent2)">${r.table}</span></div>
+                            <div class="chips">
+                                ${r.extra_columns.map(c => {
+                                    const cIdx = Math.abs(hashStr(c)) % CHIP_COLORS.length;
+                                    const cc = CHIP_COLORS[cIdx];
+                                    return `<span class="chip" style="background:${cc.bg};border-color:${cc.border};color:${cc.fg}"><i class="fa-solid fa-hashtag"></i>${c}</span>`;
+                                }).join("")}
+                            </div>
+                            <div class="detail-actions">
+                                <button class="mini-btn" onclick="copyColumns(${i})"><i class="fa-solid fa-copy"></i> Copy columns</button>
+                                <button class="mini-btn" onclick="copyTableName(${i})"><i class="fa-solid fa-table"></i> Copy table name</button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`).join("");
+
+            $("tbody").querySelectorAll("tr.row").forEach(tr => {
+                tr.addEventListener("click", () => tr.classList.toggle("expanded"));
+            });
+        }
+
+        function hashStr(s) {
+            let h = 0;
+            for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+            return h;
+        }
+
+        async function copyColumns(i) {
+            const row = filteredRows()[i];
+            const text = row.extra_columns.join("\n");
+            await copyText(text);
+            toast("Copied " + row.extra_columns.length + " column name" + (row.extra_columns.length === 1 ? "" : "s"));
+        }
+
+        async function copyTableName(i) {
+            const row = filteredRows()[i];
+            await copyText(row.table);
+            toast("Copied table name");
+        }
+
+        async function copyText(text) {
+            try { await navigator.clipboard.writeText(text); }
+            catch (e) {
+                const ta = document.createElement("textarea");
+                ta.value = text; document.body.appendChild(ta); ta.select();
+                document.execCommand("copy"); ta.remove();
+            }
+        }
+
+        let toastTimer = null;
+        function toast(msg) {
+            const t = $("toast");
+            t.textContent = msg;
+            t.classList.add("show");
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove("show"), 2400);
+        }
+
+        $("btnScan").addEventListener("click", () => load(true));
+        $("btnDownload").addEventListener("click", () => {
+            if (!data) return;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "extra_db_columns_report.json";
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast("Report downloaded");
+        });
+
+        $("searchInput").addEventListener("input", (e) => { searchTerm = e.target.value.trim(); renderTable(); });
+        $("appFilter").addEventListener("change", (e) => { appFilter = e.target.value; renderTable(); });
+
+        document.querySelectorAll("thead th[data-key]").forEach(th => {
+            th.addEventListener("click", () => {
+                const key = th.dataset.key;
+                if (sortKey === key) { sortDir *= -1; } else { sortKey = key; sortDir = 1; }
+                document.querySelectorAll("thead th").forEach(t => {
+                    t.querySelector(".sort-ico").className = "fa-solid fa-sort sort-ico";
+                });
+                const ico = th.querySelector(".sort-ico");
+                ico.className = sortDir === 1 ? "fa-solid fa-arrow-up-wide-short sort-ico" : "fa-solid fa-arrow-down-short-wide sort-ico";
+                renderTable();
+            });
+        });
+
+        load(true);
+    </script>
+</body>
+</html>
