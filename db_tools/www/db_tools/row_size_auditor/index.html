@@ -1,0 +1,81 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Row Size Auditor · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-ruler-horizontal{% endblock %}
+{% block tool_name %}Row Size Auditor{% endblock %}
+{% block tool_tagline %}Tables approaching InnoDB's 65,535-byte row limit{% endblock %}
+{% block chip_title %}Risk Breakdown{% endblock %}
+{% block chip_sub %}Tables by how close they are to the ceiling{% endblock %}
+{% block loading_text %}Estimating inline row sizes&hellip;{% endblock %}
+{% block footer_note %}estimate from column definitions{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Thresholds</h3>
+    <div class="sub">Enough Data/Link/Select custom fields on one DocType will eventually fail a migration with “Row size too large”</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>Warn Above (% of limit)</label>
+            <input id="fWarn" type="number" value="60" min="1" max="100">
+        </div>
+        <div class="fgroup">
+            <label>Max Columns</label>
+            <input id="fMaxCols" type="number" value="200" min="1">
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.row_size_auditor.api.get_row_size_report",
+    filename: "row_size_audit",
+    statCount: 6,
+    doneMessage: "Row size audit complete",
+    params: () => ({
+        warn_pct: document.getElementById("fWarn").value,
+        max_columns: document.getElementById("fMaxCols").value,
+    }),
+    stats: (d) => [
+        { icon: "fa-table", label: "Tables Scanned", value: d.summary.tables_scanned, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-triangle-exclamation", label: "At Risk", value: d.summary.at_risk, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-circle-exclamation", label: "Critical", value: d.summary.critical, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-ruler-horizontal", label: "Widest: " + d.summary.widest_table, value: d.summary.widest_pct + "%", raw: true, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-arrows-left-right", label: "Row Size Limit", value: d.summary.row_size_limit, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const colors = { critical: "var(--rose)", warning: "var(--amber)", info: "var(--accent2)" };
+        return Object.entries(d.grouped.by_severity)
+            .filter(([, v]) => v)
+            .map(([k, v]) => ({ label: k, value: v, color: colors[k] }));
+    },
+    sections: [{
+        id: "rows",
+        title: "Widest Tables",
+        subtitle: "Estimated inline bytes per row — TEXT columns count as a 20-byte pointer on DYNAMIC row format",
+        icon: "fa-ruler-horizontal",
+        placeholder: "Search table or doctype…",
+        rows: (d) => d.tables,
+        filter: { label: "All severities", key: "severity", options: [
+            { value: "critical", label: "Critical" }, { value: "warning", label: "Warning" }, { value: "info", label: "Info" },
+        ] },
+        columns: [
+            { key: "severity", label: "Severity", render: (r) => `<span class="pill ${r.severity}">${DBTool.esc(r.severity)}</span>` },
+            { key: "table_name", label: "Table", cls: "mono value" },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "columns", label: "Columns", type: "number" },
+            { key: "varchar_columns", label: "Varchar", type: "number" },
+            { key: "text_columns", label: "Text", type: "number" },
+            { key: "estimated_row_bytes", label: "Est. Row Bytes", type: "number" },
+            { key: "pct_of_limit", label: "% of Limit", type: "number", render: (r) => `${r.pct_of_limit}%<div class="bar"><span style="width:${Math.min(r.pct_of_limit, 100)}%"></span></div>` },
+            { key: "headroom_bytes", label: "Headroom", type: "number" },
+            { key: "row_format", label: "Row Format", cls: "mono" },
+            { key: "note", label: "Note", cls: "reason" },
+        ],
+        empty: { icon: "fa-circle-check", title: "Every table has room", text: "No table is close to the InnoDB row size limit." },
+    }],
+});
+</script>
+{% endblock %}

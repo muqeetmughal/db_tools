@@ -1,0 +1,82 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Customization Auditor · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-screwdriver-wrench{% endblock %}
+{% block tool_name %}Customization Auditor{% endblock %}
+{% block tool_tagline %}Custom Fields and Property Setters that point at things which no longer exist{% endblock %}
+{% block chip_sub %}Issues grouped by severity and kind{% endblock %}
+{% block loading_text %}Resolving every customisation reference&hellip;{% endblock %}
+{% block footer_note %}checks the customisation layer, not the data{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Audit Options</h3>
+    <div class="sub">These pile up quietly when an app is uninstalled or a field is renamed</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fColumns" type="checkbox" checked> Check for missing columns</label>
+                <label class="check"><input id="fSetters" type="checkbox" checked> Check Property Setters</label>
+                <label class="check"><input id="fScripts" type="checkbox" checked> Check Client/Server Scripts</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.customization_auditor.api.get_customization_report",
+    filename: "customization_audit",
+    statCount: 6,
+    doneMessage: "Customization audit complete",
+    params: () => ({
+        check_columns: document.getElementById("fColumns").checked,
+        check_property_setters: document.getElementById("fSetters").checked,
+        check_scripts: document.getElementById("fScripts").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-plus", label: "Custom Fields Checked", value: d.summary.custom_fields_checked, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-sliders", label: "Property Setters Checked", value: d.summary.property_setters_checked, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-code", label: "Scripts Checked", value: d.summary.scripts_checked, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-triangle-exclamation", label: "Issues", value: d.summary.issues, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-circle-exclamation", label: "Critical", value: d.summary.critical, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        const colors = { critical: "var(--rose)", warning: "var(--amber)", info: "var(--accent2)" };
+        for (const [k, v] of Object.entries(d.grouped.by_severity)) {
+            if (v) out.push({ label: k, value: v, color: colors[k] });
+        }
+        for (const [k, v] of Object.entries(d.grouped.by_issue)) {
+            out.push({ label: k, value: v, icon: "fa-tag", color: "var(--muted)" });
+        }
+        return out;
+    },
+    sections: [{
+        id: "issues",
+        title: "Dangling References",
+        subtitle: "Each row names the customisation record so you can open and fix it",
+        icon: "fa-screwdriver-wrench",
+        placeholder: "Search doctype, field or issue…",
+        rows: (d) => d.findings,
+        filter: { label: "All severities", key: "severity", options: [
+            { value: "critical", label: "Critical" }, { value: "warning", label: "Warning" }, { value: "info", label: "Info" },
+        ] },
+        columns: [
+            { key: "severity", label: "Severity", render: (r) => `<span class="pill ${r.severity}">${DBTool.esc(r.severity)}</span>` },
+            { key: "source", label: "Source", cls: "dt-name" },
+            { key: "record", label: "Record", render: (r) => `<a class="mono" style="color:var(--accent2);text-decoration:none" href="/app/${encodeURIComponent(r.source.toLowerCase().replace(/ /g, "-"))}/${encodeURIComponent(r.record)}" target="_blank">${DBTool.esc(r.record)}</a>` },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "fieldname", label: "Field", cls: "mono" },
+            { key: "issue", label: "Issue" },
+            { key: "detail", label: "Detail", cls: "reason" },
+        ],
+        empty: { icon: "fa-circle-check", title: "Customisations are clean", text: "Every Custom Field, Property Setter and script resolves." },
+    }],
+});
+</script>
+{% endblock %}

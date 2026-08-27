@@ -1,0 +1,128 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Site Schema Comparison · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-code-compare{% endblock %}
+{% block tool_name %}Site Schema Comparison{% endblock %}
+{% block tool_tagline %}Diff the live schema of two sites on this bench{% endblock %}
+{% block run_label %}Compare{% endblock %}
+{% block chip_sub %}Differences grouped by severity and kind{% endblock %}
+{% block loading_text %}Reading both schemas and diffing&hellip;{% endblock %}
+{% block footer_note %}read-only · credentials never leave the server{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Sites to Compare</h3>
+    <div class="sub">Each site is opened with its own credentials from <code>site_config.json</code></div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>Site A</label>
+            <select id="fSiteA"></select>
+        </div>
+        <div class="fgroup">
+            <label>Site B</label>
+            <select id="fSiteB"></select>
+        </div>
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fColumns" type="checkbox" checked> Compare columns</label>
+                <label class="check"><input id="fIndexes" type="checkbox" checked> Compare indexes</label>
+                <label class="check"><input id="fTabOnly" type="checkbox" checked> Only <code>tab*</code> tables</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const SEV_PILL = { critical: "critical", warning: "warning", info: "info" };
+
+const config = {
+    api: "db_tools.backend.site_schema_comparison.api.get_site_schema_comparison",
+    filename: "site_schema_diff",
+    statCount: 6,
+    autoRun: false,
+    doneMessage: "Comparison complete",
+    params: () => ({
+        site_a: document.getElementById("fSiteA").value,
+        site_b: document.getElementById("fSiteB").value,
+        compare_columns: document.getElementById("fColumns").checked,
+        compare_indexes: document.getElementById("fIndexes").checked,
+        only_doctype_tables: document.getElementById("fTabOnly").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-server", label: "Site A: " + d.summary.site_a, value: d.summary.tables_a + " tables", raw: true, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-server", label: "Site B: " + d.summary.site_b, value: d.summary.tables_b + " tables", raw: true, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-object-group", label: "Tables in Common", value: d.summary.tables_common, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+        { icon: "fa-code-compare", label: "Differences", value: d.summary.differences, color: d.summary.differences ? "var(--rose)" : "var(--green)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-table", label: "Affected Tables", value: d.summary.affected_tables, color: "var(--amber)", bg: "rgba(245,158,11,.14)" },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        const colors = { critical: "var(--rose)", warning: "var(--amber)", info: "var(--accent2)" };
+        for (const [k, v] of Object.entries(d.grouped.by_severity)) {
+            if (!v) continue;
+            out.push({ label: k, value: v, color: colors[k] });
+        }
+        Object.entries(d.grouped.by_kind).sort((a, b) => b[1] - a[1]).slice(0, 8)
+            .forEach(([k, n]) => out.push({ label: k, value: n, icon: "fa-tag", color: "var(--muted)" }));
+        return out;
+    },
+    sections: [{
+        id: "diffs",
+        title: "Differences",
+        subtitle: "“Missing on B” means Site A has it and Site B does not",
+        icon: "fa-code-compare",
+        placeholder: "Search table, column or kind…",
+        rows: (d) => d.differences,
+        filter: { label: "All severities", key: "severity", options: [
+            { value: "critical", label: "Critical" }, { value: "warning", label: "Warning" }, { value: "info", label: "Info" },
+        ] },
+        columns: [
+            { key: "severity", label: "Severity", render: (r) => `<span class="pill ${SEV_PILL[r.severity] || "info"}">${DBTool.esc(r.severity)}</span>` },
+            { key: "kind", label: "Kind" },
+            { key: "table_name", label: "Table", cls: "mono value" },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "column_name", label: "Column / Index", cls: "mono" },
+            { key: "site_a", label: "Site A", cls: "mono" },
+            { key: "site_b", label: "Site B", cls: "mono" },
+        ],
+        empty: { icon: "fa-circle-check", title: "Schemas are in sync", text: "Both sites expose exactly the same tables, columns and indexes." },
+    }],
+};
+
+(async function bootstrap() {
+    const a = document.getElementById("fSiteA");
+    const b = document.getElementById("fSiteB");
+
+    try {
+        const res = await fetch("/api/method/db_tools.backend.site_schema_comparison.api.get_sites", {
+            headers: { "Accept": "application/json" }, credentials: "same-origin",
+        });
+        const json = await res.json();
+        if (json.exc || !json.message) throw new Error(json.exception || "Could not load sites");
+
+        const { sites, current } = json.message;
+        const opts = sites.map(s => `<option value="${s}">${s}</option>`).join("");
+        a.innerHTML = opts;
+        b.innerHTML = opts;
+        a.value = current;
+        const other = sites.find(s => s !== current);
+        b.value = other || current;
+
+        DBTool.init(config);
+
+        if (sites.length < 2) {
+            DBTool.toast("Only one site on this bench — add another to compare", true);
+        } else {
+            DBTool.run();
+        }
+    } catch (e) {
+        DBTool.init(config);
+        DBTool.toast("Could not load bench sites: " + (e.message || e), true);
+    }
+})();
+</script>
+{% endblock %}

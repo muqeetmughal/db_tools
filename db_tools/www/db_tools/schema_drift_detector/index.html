@@ -1,0 +1,89 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Schema Drift Detector · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-code-branch{% endblock %}
+{% block tool_name %}Schema Drift Detector{% endblock %}
+{% block tool_tagline %}Fields with no column, and columns whose type drifted from the schema{% endblock %}
+{% block chip_sub %}Drift grouped by severity and kind{% endblock %}
+{% block loading_text %}Comparing every DocType field against its column&hellip;{% endblock %}
+{% block footer_note %}compares against frappe's own column definitions{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Scan Options</h3>
+    <div class="sub">Expected types come from Frappe's own <code>get_definition()</code>, so per-field length and precision overrides are respected</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>DocTypes</label>
+            <input id="fDoctype" type="text" placeholder="All (comma separated)">
+        </div>
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fTypes" type="checkbox" checked> Type mismatches</label>
+                <label class="check"><input id="fLengths" type="checkbox" checked> Length mismatches</label>
+                <label class="check"><input id="fCustom" type="checkbox" checked> Include custom fields</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.schema_drift_detector.api.get_schema_drift_report",
+    filename: "schema_drift",
+    statCount: 6,
+    doneMessage: "Drift scan complete",
+    params: () => ({
+        doctype: document.getElementById("fDoctype").value.trim(),
+        check_types: document.getElementById("fTypes").checked,
+        check_lengths: document.getElementById("fLengths").checked,
+        include_custom_fields: document.getElementById("fCustom").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-cubes", label: "DocTypes Scanned", value: d.summary.doctypes_scanned, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-list-check", label: "Fields Checked", value: d.summary.fields_checked, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-circle-exclamation", label: "Missing Columns", value: d.summary.missing_columns, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-shuffle", label: "Type Mismatches", value: d.summary.type_mismatches, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-ruler", label: "Length Mismatches", value: d.summary.length_mismatches, color: "var(--accent2)", bg: "rgba(34,211,238,.14)", paint: true },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        const colors = { critical: "var(--rose)", warning: "var(--amber)", info: "var(--accent2)" };
+        for (const [k, v] of Object.entries(d.grouped.by_severity)) {
+            if (v) out.push({ label: k, value: v, color: colors[k] });
+        }
+        Object.entries(d.grouped.by_doctype).sort((a, b) => b[1] - a[1]).slice(0, 8)
+            .forEach(([dt, n]) => out.push({ label: dt, value: n, icon: "fa-cube", color: "var(--muted)" }));
+        return out;
+    },
+    sections: [{
+        id: "drift",
+        title: "Drifted Fields",
+        subtitle: "A missing column usually means a migration never ran for that field",
+        icon: "fa-code-branch",
+        placeholder: "Search doctype, column or type…",
+        rows: (d) => d.findings,
+        filter: { label: "All kinds", key: "kind", options: [
+            { value: "missing column", label: "Missing column" },
+            { value: "type mismatch", label: "Type mismatch" },
+            { value: "length mismatch", label: "Length mismatch" },
+        ] },
+        columns: [
+            { key: "severity", label: "Severity", render: (r) => `<span class="pill ${r.severity}">${DBTool.esc(r.kind)}</span>` },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "column_name", label: "Column", cls: "mono" },
+            { key: "fieldtype", label: "Fieldtype" },
+            { key: "expected", label: "Expected", render: (r) => `<span class="mono" style="color:var(--green)">${DBTool.esc(r.expected)}</span>` },
+            { key: "actual", label: "In Database", render: (r) => `<span class="mono" style="color:var(--rose)">${DBTool.esc(r.actual)}</span>` },
+            { key: "is_custom", label: "Custom", render: (r) => r.is_custom ? `<span class="pill info">custom</span>` : "—" },
+            { key: "fix_sql", label: "Suggested SQL", cls: "mono" },
+        ],
+        empty: { icon: "fa-circle-check", title: "No schema drift", text: "Every field has a column, and every column matches its declared type." },
+    }],
+});
+</script>
+{% endblock %}

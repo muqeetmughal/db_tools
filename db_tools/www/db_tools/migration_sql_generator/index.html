@@ -1,0 +1,124 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Migration SQL Generator · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-file-code{% endblock %}
+{% block tool_name %}Migration SQL Generator{% endblock %}
+{% block tool_tagline %}Turns the other tools' findings into a reviewable SQL script{% endblock %}
+{% block run_label %}Generate{% endblock %}
+{% block chip_title %}Statements{% endblock %}
+{% block chip_sub %}Grouped by category and risk{% endblock %}
+{% block loading_text %}Running the source scans and building SQL&hellip;{% endblock %}
+{% block footer_note %}generates SQL only — nothing is executed{% endblock %}
+
+{% block extra_actions %}
+<button class="btn" id="btnSql"><i class="fa-solid fa-database"></i> .sql</button>
+{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> What to Generate</h3>
+    <div class="sub">High-risk statements are emitted commented out — uncomment only what you have verified</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>Index Row Threshold</label>
+            <input id="fMinRows" type="number" value="1000" min="0">
+        </div>
+        <div class="fgroup">
+            <label>Max Orphan Rows</label>
+            <input id="fLimit" type="number" value="2000" min="1">
+        </div>
+        <div class="fgroup" style="flex:1">
+            <label>Sources</label>
+            <div class="checks">
+                <label class="check"><input id="fDupes" type="checkbox" checked> Duplicate indexes</label>
+                <label class="check"><input id="fIndexes" type="checkbox" checked> Missing indexes</label>
+                <label class="check"><input id="fExtra" type="checkbox" checked> Extra columns</label>
+                <label class="check"><input id="fTables" type="checkbox"> Orphan tables</label>
+                <label class="check"><input id="fChildren" type="checkbox"> Orphan child rows</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel" style="border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.06)">
+    <h3><i class="fa-solid fa-triangle-exclamation" style="color:var(--amber)"></i> Read before running</h3>
+    <div class="sub" style="margin-bottom:0">
+        This tool only produces text. <b>DROP COLUMN</b>, <b>DROP TABLE</b> and <b>DELETE</b> destroy data permanently —
+        take a backup (<code>bench --site &lt;site&gt; backup</code>) and review every statement before executing anything.
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const RISK = { low: "ok", medium: "warning", high: "critical" };
+
+const config = {
+    api: "db_tools.backend.migration_sql_generator.api.get_migration_sql",
+    filename: "db_tools_migration",
+    statCount: 5,
+    doneMessage: "SQL generated",
+    params: () => ({
+        extra_columns: document.getElementById("fExtra").checked,
+        duplicate_indexes: document.getElementById("fDupes").checked,
+        missing_indexes: document.getElementById("fIndexes").checked,
+        orphan_tables: document.getElementById("fTables").checked,
+        orphan_children: document.getElementById("fChildren").checked,
+        min_rows: document.getElementById("fMinRows").value,
+        limit: document.getElementById("fLimit").value,
+    }),
+    stats: (d) => [
+        { icon: "fa-file-code", label: "Statements", value: d.summary.statements, color: "var(--accent2)", bg: "rgba(34,211,238,.14)", paint: true },
+        { icon: "fa-folder-tree", label: "Categories", value: d.summary.categories, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-shield-halved", label: "Low Risk", value: d.summary.low_risk, color: "var(--green)", bg: "rgba(52,211,153,.14)", paint: true },
+        { icon: "fa-skull-crossbones", label: "High Risk", value: d.summary.high_risk, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--amber)", bg: "rgba(245,158,11,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        const riskColor = { low: "var(--green)", medium: "var(--amber)", high: "var(--rose)" };
+        for (const [k, v] of Object.entries(d.grouped.by_risk)) {
+            if (!v) continue;
+            out.push({ label: k + " risk", value: v, color: riskColor[k] });
+        }
+        for (const [k, v] of Object.entries(d.grouped.by_category)) {
+            out.push({ label: k, value: v, icon: "fa-folder", color: "var(--muted)" });
+        }
+        return out;
+    },
+    sections: [
+        {
+            id: "statements",
+            title: "Statements",
+            subtitle: "Every generated statement, with the finding that produced it",
+            icon: "fa-list-ol",
+            placeholder: "Search category, target or SQL…",
+            rows: (d) => d.statements,
+            filter: { label: "All risks", key: "risk", options: [
+                { value: "high", label: "High risk" }, { value: "medium", label: "Medium risk" }, { value: "low", label: "Low risk" },
+            ] },
+            columns: [
+                { key: "risk", label: "Risk", render: (r) => `<span class="pill ${RISK[r.risk] || "muted"}">${DBTool.esc(r.risk)}</span>` },
+                { key: "category", label: "Category", cls: "dt-name" },
+                { key: "target", label: "Target", cls: "mono value" },
+                { key: "sql", label: "SQL", cls: "mono" },
+                { key: "reason", label: "Reason", cls: "reason" },
+            ],
+            empty: { icon: "fa-circle-check", title: "Nothing to clean up", text: "The selected scans found no issues that need SQL." },
+        },
+        {
+            id: "script",
+            type: "code",
+            title: "Full Script",
+            subtitle: "Copy or download, review, then run against a backed-up site",
+            icon: "fa-file-code",
+            text: (d) => d.script || "",
+        },
+    ],
+};
+
+DBTool.init(config);
+
+document.getElementById("btnSql").addEventListener("click", () => DBTool.download("sql", "sql"));
+</script>
+{% endblock %}

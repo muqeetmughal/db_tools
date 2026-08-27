@@ -1,0 +1,92 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Missing Index Advisor · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-wand-magic-sparkles{% endblock %}
+{% block tool_name %}Missing Index Advisor{% endblock %}
+{% block tool_tagline %}Indexes worth adding for the columns Frappe filters and joins on{% endblock %}
+{% block chip_title %}Suggestions{% endblock %}
+{% block chip_sub %}Grouped by priority and DocType{% endblock %}
+{% block loading_text %}Cross-checking DocType fields against existing indexes&hellip;{% endblock %}
+{% block footer_note %}suggests CREATE INDEX statements — never runs them{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Advisor Options</h3>
+    <div class="sub">Only tables above the row threshold are considered — an index on a tiny table is noise</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>DocTypes</label>
+            <input id="fDoctype" type="text" placeholder="All (comma separated)">
+        </div>
+        <div class="fgroup">
+            <label>Min Rows</label>
+            <input id="fMinRows" type="number" value="1000" min="0">
+        </div>
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fSelect" type="checkbox"> Include Select fields</label>
+                <label class="check"><input id="fParent" type="checkbox" checked> Include child <code>parent</code></label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.missing_index_advisor.api.get_missing_indexes_report",
+    filename: "missing_indexes",
+    statCount: 6,
+    doneMessage: "Index advice ready",
+    params: () => ({
+        doctype: document.getElementById("fDoctype").value.trim(),
+        min_rows: document.getElementById("fMinRows").value,
+        include_select: document.getElementById("fSelect").checked,
+        include_child_parent: document.getElementById("fParent").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-cubes", label: "DocTypes Scanned", value: d.summary.doctypes_scanned, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-list-check", label: "Fields Examined", value: d.summary.fields_examined, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-wand-magic-sparkles", label: "Suggestions", value: d.summary.suggestions, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-fire", label: "High Priority", value: d.summary.high_priority, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-table", label: "Affected DocTypes", value: d.summary.affected_doctypes, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-filter", label: "Row Threshold", value: d.summary.min_rows, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        const colors = { high: "var(--rose)", medium: "var(--amber)", low: "var(--accent2)" };
+        for (const [k, v] of Object.entries(d.grouped.by_priority)) {
+            if (!v) continue;
+            out.push({ label: k + " priority", value: v, color: colors[k] });
+        }
+        Object.entries(d.grouped.by_doctype).sort((a, b) => b[1] - a[1]).slice(0, 6)
+            .forEach(([dt, n]) => out.push({ label: dt, value: n, icon: "fa-cube", color: "var(--muted)" }));
+        return out;
+    },
+    sections: [{
+        id: "suggestions",
+        title: "Suggested Indexes",
+        subtitle: "Ordered by priority, then by how many rows the table holds",
+        icon: "fa-wand-magic-sparkles",
+        placeholder: "Search doctype, column or reason…",
+        rows: (d) => d.suggestions,
+        filter: { label: "All priorities", key: "priority", options: [
+            { value: "high", label: "High" }, { value: "medium", label: "Medium" }, { value: "low", label: "Low" },
+        ] },
+        columns: [
+            { key: "priority", label: "Priority", render: (r) => `<span class="pill ${r.priority}">${DBTool.esc(r.priority)}</span>` },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "table_name", label: "Table", cls: "mono value" },
+            { key: "column_name", label: "Column", cls: "mono" },
+            { key: "fieldtype", label: "Fieldtype" },
+            { key: "table_rows", label: "Rows", type: "number" },
+            { key: "reason", label: "Why", cls: "reason" },
+            { key: "create_sql", label: "Suggested SQL", cls: "mono" },
+        ],
+        empty: { icon: "fa-circle-check", title: "Nothing to add", text: "Every frequently filtered column on a sizeable table is already indexed." },
+    }],
+});
+</script>
+{% endblock %}

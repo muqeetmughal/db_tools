@@ -1,0 +1,96 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Empty Column Analyzer · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-eye-dropper{% endblock %}
+{% block tool_name %}Empty Column Analyzer{% endblock %}
+{% block tool_tagline %}Columns nobody ever filled in, and columns holding one value{% endblock %}
+{% block chip_sub %}Findings grouped by kind and table{% endblock %}
+{% block loading_text %}Aggregating column fill rates&hellip;{% endblock %}
+{% block footer_note %}one batched query per chunk of columns{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Scan Options</h3>
+    <div class="sub">This one reads row data — keep the table budget modest on a large site</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>DocTypes</label>
+            <input id="fDoctype" type="text" placeholder="All (comma separated)">
+        </div>
+        <div class="fgroup">
+            <label>Min Rows</label>
+            <input id="fMinRows" type="number" value="100" min="1">
+        </div>
+        <div class="fgroup">
+            <label>Max Tables</label>
+            <input id="fMaxTables" type="number" value="40" min="1">
+        </div>
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fSingle" type="checkbox" checked> Find single-value columns</label>
+                <label class="check"><input id="fStandard" type="checkbox"> Include framework columns</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.empty_column_analyzer.api.get_empty_columns_report",
+    filename: "empty_columns",
+    statCount: 6,
+    doneMessage: "Column analysis complete",
+    params: () => ({
+        doctype: document.getElementById("fDoctype").value.trim(),
+        min_rows: document.getElementById("fMinRows").value,
+        max_tables: document.getElementById("fMaxTables").value,
+        find_single_value: document.getElementById("fSingle").checked,
+        include_standard: document.getElementById("fStandard").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-table", label: "Tables Scanned", value: d.summary.tables_scanned, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-table-columns", label: "Columns Scanned", value: d.summary.columns_scanned, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-ban", label: "Always Empty", value: d.summary.always_empty, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-equals", label: "Single Value", value: d.summary.single_value, color: "var(--accent2)", bg: "rgba(34,211,238,.14)", paint: true },
+        { icon: "fa-cubes", label: "Affected Tables", value: d.summary.affected_tables, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        for (const [k, v] of Object.entries(d.grouped.by_kind)) {
+            out.push({ label: k, value: v, icon: "fa-tag", color: k === "always empty" ? "var(--amber)" : "var(--accent2)" });
+        }
+        Object.entries(d.grouped.by_table).sort((a, b) => b[1] - a[1]).slice(0, 6)
+            .forEach(([t, n]) => out.push({ label: t, value: n, icon: "fa-table", color: "var(--muted)" }));
+        return out;
+    },
+    sections: [{
+        id: "cols",
+        title: "Unused Columns",
+        subtitle: "“Always empty” means every row is NULL or blank; “single value” means the column never varies",
+        icon: "fa-eye-dropper",
+        placeholder: "Search table, column or value…",
+        rows: (d) => d.findings,
+        filter: { label: "All kinds", key: "kind", options: [
+            { value: "always empty", label: "Always empty" },
+            { value: "single value", label: "Single value" },
+        ] },
+        columns: [
+            { key: "kind", label: "Kind", render: (r) => `<span class="pill ${r.severity}">${DBTool.esc(r.kind)}</span>` },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "column_name", label: "Column", cls: "mono" },
+            { key: "column_type", label: "Type", cls: "mono" },
+            { key: "table_rows", label: "Rows", type: "number" },
+            { key: "non_empty_rows", label: "Filled", type: "number", render: (r) => `${DBTool.num(r.non_empty_rows)}<div class="bar"><span style="width:${Math.min(r.fill_rate, 100)}%"></span></div>` },
+            { key: "distinct_values", label: "Distinct", type: "number" },
+            { key: "sole_value", label: "Sole Value", cls: "mono value" },
+            { key: "drop_sql", label: "Suggested SQL", cls: "mono" },
+        ],
+        empty: { icon: "fa-circle-check", title: "Every column earns its place", text: "No always-empty or single-value columns in the scanned tables." },
+    }],
+});
+</script>
+{% endblock %}
