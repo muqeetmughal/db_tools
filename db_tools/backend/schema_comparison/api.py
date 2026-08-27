@@ -2,7 +2,7 @@ import os
 import json
 import frappe
 
-from db_tools.backend.common import guard
+from db_tools.backend.common import guard, respond
 
 # Standard columns present on every DocType
 STANDARD_COLUMNS = {
@@ -178,9 +178,17 @@ def print_extra_db_columns():
     return report
 
 
+# Column order used for the csv/markdown downloads.
+REPORT_COLUMNS = ["app", "doctype", "table", "extra_columns"]
+
+
 @frappe.whitelist()
-def get_extra_db_columns_report():
-    """Whitelisted API returning the extra-columns report as JSON for the dashboard."""
+def get_extra_db_columns_report(fmt: str = "json"):
+    """Whitelisted API returning the extra-columns report as JSON for the dashboard.
+
+    ``fmt`` may be ``csv`` or ``markdown`` to get a rendered download instead,
+    matching every other tool in the suite.
+    """
     guard()
     report = find_extra_db_columns()
 
@@ -202,7 +210,7 @@ def get_extra_db_columns_report():
     doctypes_affected = len(report)
     total_extra = sum(len(item["extra_columns"]) for item in report)
 
-    return {
+    payload = {
         "report": report,
         "summary": {
             "apps_scanned": apps_scanned,
@@ -212,3 +220,5 @@ def get_extra_db_columns_report():
             "total_extra_columns": total_extra,
         },
     }
+
+    return respond(payload, fmt, "report", REPORT_COLUMNS, "Extra Database Columns")
