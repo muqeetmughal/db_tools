@@ -14,6 +14,18 @@ import frappe
 # information about the site, so they are never open to guests.
 ALLOWED_ROLES = {"System Manager", "Administrator"}
 
+# Framework columns that are populated on every row by definition — noise for
+# any tool that looks at how columns are filled in.
+STANDARD_COLUMNS_ALWAYS_SET = {
+    "name",
+    "owner",
+    "creation",
+    "modified",
+    "modified_by",
+    "docstatus",
+    "idx",
+}
+
 # Frappe/ERPNext tables that are not backed by a DocType but are still expected.
 KNOWN_SYSTEM_TABLES = {
     "__Auth",

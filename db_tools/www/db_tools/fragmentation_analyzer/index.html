@@ -1,0 +1,109 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Fragmentation Analyzer · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-puzzle-piece{% endblock %}
+{% block tool_name %}Fragmentation Analyzer{% endblock %}
+{% block tool_tagline %}Space trapped inside tables, plus engine and row-format drift{% endblock %}
+{% block chip_title %}Engines &amp; Row Formats{% endblock %}
+{% block chip_sub %}What the tables in this database use{% endblock %}
+{% block loading_text %}Measuring free space per table&hellip;{% endblock %}
+{% block footer_note %}suggests OPTIMIZE — never runs it{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Thresholds</h3>
+    <div class="sub">A table has to be both fragmented enough and big enough to be worth an OPTIMIZE</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>Min Free Space (KB)</label>
+            <input id="fMinFree" type="number" value="1024" min="0">
+        </div>
+        <div class="fgroup">
+            <label>Min Fragmentation (%)</label>
+            <input id="fMinPct" type="number" value="10" min="0" max="100">
+        </div>
+    </div>
+</div>
+
+<div class="panel" style="border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.06)">
+    <h3><i class="fa-solid fa-triangle-exclamation" style="color:var(--amber)"></i> About OPTIMIZE TABLE</h3>
+    <div class="sub" style="margin-bottom:0">
+        On InnoDB this rebuilds the table and <b>locks it for the duration</b>. Run it in a maintenance window,
+        not on a live site during business hours.
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.fragmentation_analyzer.api.get_fragmentation_report",
+    filename: "fragmentation",
+    statCount: 6,
+    doneMessage: "Fragmentation scan complete",
+    params: () => ({
+        min_free_kb: document.getElementById("fMinFree").value,
+        min_pct: document.getElementById("fMinPct").value,
+    }),
+    stats: (d) => [
+        { icon: "fa-table", label: "Tables Scanned", value: d.summary.tables_scanned, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-puzzle-piece", label: "Fragmented Tables", value: d.summary.fragmented_tables, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-hard-drive", label: "Reclaimable", value: d.summary.reclaimable, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+        { icon: "fa-server", label: "Engine Drift", value: d.summary.engine_drift, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-gears", label: "Non-InnoDB Tables", value: d.summary.non_innodb, color: "#a78bfa", bg: "rgba(167,139,250,.14)", paint: true },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        for (const [k, v] of Object.entries(d.grouped.engines || {})) {
+            out.push({ label: k, value: v, icon: "fa-server", color: k === "InnoDB" ? "var(--green)" : "var(--amber)" });
+        }
+        for (const [k, v] of Object.entries(d.grouped.row_formats || {})) {
+            out.push({ label: k, value: v, icon: "fa-table-cells", color: k === "Dynamic" ? "var(--green)" : "var(--muted)" });
+        }
+        return out;
+    },
+    sections: [
+        {
+            id: "frag",
+            title: "Fragmented Tables",
+            subtitle: "Free space the engine is holding onto and will not return on its own",
+            icon: "fa-puzzle-piece",
+            placeholder: "Search table or doctype…",
+            rows: (d) => d.fragmented,
+            columns: [
+                { key: "severity", label: "Severity", render: (r) => `<span class="pill ${r.severity}">${DBTool.esc(r.severity)}</span>` },
+                { key: "table_name", label: "Table", cls: "mono value" },
+                { key: "doctype", label: "DocType", cls: "dt-name" },
+                { key: "rows", label: "Rows", type: "number" },
+                { key: "data_bytes", label: "Data", type: "number", render: (r) => DBTool.esc(r.data_size) },
+                { key: "free_bytes", label: "Free", type: "number", render: (r) => `<b>${DBTool.esc(r.free_size)}</b>` },
+                { key: "fragmentation_pct", label: "Fragmented", type: "number", render: (r) => `${r.fragmentation_pct}%<div class="bar"><span style="width:${Math.min(r.fragmentation_pct, 100)}%"></span></div>` },
+                { key: "optimize_sql", label: "Suggested SQL", cls: "mono" },
+            ],
+            empty: { icon: "fa-circle-check", title: "No meaningful fragmentation", text: "No table holds enough free space to be worth rebuilding." },
+        },
+        {
+            id: "engines",
+            title: "Engine & Row Format",
+            subtitle: "Critical means the table drifted from what its DocType declares",
+            icon: "fa-server",
+            placeholder: "Search table or issue…",
+            hideWhenEmpty: true,
+            rows: (d) => d.engine_issues || [],
+            columns: [
+                { key: "severity", label: "Severity", render: (r) => `<span class="pill ${r.severity}">${DBTool.esc(r.severity)}</span>` },
+                { key: "table_name", label: "Table", cls: "mono value" },
+                { key: "rows", label: "Rows", type: "number" },
+                { key: "engine", label: "Engine", cls: "mono" },
+                { key: "row_format", label: "Row Format", cls: "mono" },
+                { key: "issue", label: "Issue" },
+                { key: "detail", label: "Detail", cls: "reason" },
+                { key: "fix_sql", label: "Suggested SQL", cls: "mono" },
+            ],
+            empty: { icon: "fa-circle-check", title: "Engines look right", text: "" },
+        },
+    ],
+});
+</script>
+{% endblock %}

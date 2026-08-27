@@ -63,54 +63,120 @@
         .badge-ct { display: inline-block; margin-top: 14px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.3); color: var(--green); }
         .badge-ct b { color: var(--text); }
 
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+        /* Sticky toolbar: search + category filters */
+        .hub-bar {
+            position: sticky; top: 0; z-index: 5;
+            display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+            padding: 14px 0 16px; margin-bottom: 6px;
+            background: linear-gradient(180deg, rgba(10,15,34,.96) 70%, rgba(10,15,34,0));
+            backdrop-filter: blur(6px);
+        }
+        .hub-search {
+            flex: 1 1 260px; min-width: 0;
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(0,0,0,.28); border: 1px solid var(--card-border);
+            border-radius: 12px; padding: 11px 15px; color: var(--muted);
+        }
+        .hub-search input {
+            flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+            color: var(--text); font-size: 14px; font-family: inherit;
+        }
+        .hub-search input::placeholder { color: var(--faint); }
+        .hub-clear { background: none; border: none; color: var(--faint); cursor: pointer; font-size: 13px; padding: 0; display: none; }
+        .hub-clear:hover { color: var(--text); }
+
+        .cats { display: flex; gap: 8px; flex-wrap: wrap; }
+        .cat {
+            padding: 9px 15px; border-radius: 11px; font-size: 13px; font-weight: 600;
+            background: var(--card); border: 1px solid var(--card-border); color: var(--muted);
+            cursor: pointer; font-family: inherit; white-space: nowrap;
+            transition: background .18s ease, color .18s ease, border-color .18s ease;
+        }
+        .cat:hover { color: var(--text); border-color: rgba(255,255,255,.2); }
+        .cat.on { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; }
+        .cat .n { opacity: .75; font-size: 11.5px; margin-left: 5px; }
+
+        /* min() keeps a card from ever being wider than the viewport */
+        .grid {
+            display: grid; gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+        }
 
         .tool-card {
-            position: relative; display: flex; gap: 16px; align-items: flex-start;
+            position: relative; display: grid; gap: 14px;
+            grid-template-columns: auto 1fr;
+            grid-template-areas: "icon head" "icon body" "foot foot";
+            align-content: start;
             background: var(--card); border: 1px solid var(--card-border);
-            border-radius: var(--radius); padding: 22px;
+            border-radius: var(--radius); padding: 20px;
             text-decoration: none; color: var(--text);
             transition: transform .2s ease, border-color .2s ease, background .2s ease;
             overflow: hidden;
         }
-        .tool-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.18); }
+        .tool-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.18); background: var(--card-hover); }
+        .tool-card:focus-visible { outline: 2px solid var(--accent2); outline-offset: 3px; }
 
-        .tool-card .num {
-            font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 600;
-            color: var(--faint); letter-spacing: 1px; padding-top: 2px;
-        }
         .tool-card .t-ico {
-            width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+            grid-area: icon; width: 46px; height: 46px; border-radius: 13px;
             display: grid; place-items: center; font-size: 19px;
-            background: rgba(109,94,240,.15); color: var(--violet, #a78bfa);
-            border: 1px solid rgba(109,94,240,.25);
+            background: rgba(34,211,238,.14); color: var(--accent2);
+            border: 1px solid rgba(34,211,238,.3);
         }
-        .tool-card .t-body { flex: 1; min-width: 0; }
-        .tool-card .t-title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-        .tool-card h3 { font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
-        .tool-card p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+        .tool-card .t-head {
+            grid-area: head; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0;
+        }
+        .tool-card h3 { font-size: 15.5px; font-weight: 700; letter-spacing: -.2px; overflow-wrap: anywhere; }
+        .tool-card .num {
+            font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 600;
+            color: var(--faint); letter-spacing: 1px;
+        }
+        .tool-card p { grid-area: body; font-size: 12.8px; color: var(--muted); line-height: 1.55; overflow-wrap: anywhere; }
 
-        .tool-card .t-status {
-            position: absolute; top: 14px; right: 14px;
+        .tool-card .t-foot {
+            grid-area: foot; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin-top: 2px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06);
+        }
+        .t-cat {
+            font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+            padding: 4px 9px; border-radius: 7px; color: var(--faint);
+            background: rgba(151,163,200,.09); border: 1px solid var(--card-border);
+        }
+        .t-status {
             font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
             padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px;
         }
         .tool-card.ready .t-status { background: rgba(52,211,153,.13); color: var(--green); border: 1px solid rgba(52,211,153,.35); }
         .tool-card.soon .t-status { background: rgba(151,163,200,.1); color: var(--faint); border: 1px solid var(--card-border); }
+        .tool-card .arrow { margin-left: auto; color: var(--faint); font-size: 12px; transition: transform .2s ease, color .2s ease; }
+        .tool-card.ready:hover .arrow { transform: translateX(3px); color: var(--accent2); }
 
-        .tool-card.ready .t-ico { background: rgba(34,211,238,.14); color: var(--accent2); border-color: rgba(34,211,238,.3); }
-        .tool-card.soon { opacity: .62; cursor: not-allowed; }
-        .tool-card.soon:hover { transform: none; border-color: var(--card-border); }
-        .tool-card.soon .t-ico { filter: grayscale(.6); }
-        .tool-card .arrow { position: absolute; bottom: 14px; right: 16px; color: var(--faint); font-size: 13px; opacity: 0; transition: opacity .2s ease, transform .2s ease; }
-        .tool-card.ready:hover .arrow { opacity: 1; transform: translateX(2px); color: var(--accent2); }
+        .tool-card.soon { opacity: .55; cursor: not-allowed; }
+        .tool-card.soon:hover { transform: none; border-color: var(--card-border); background: var(--card); }
+        .tool-card.soon .t-ico { filter: grayscale(.7); }
 
-        .tool-card .glow { position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; border-radius: 50%; filter: blur(40px); opacity: .4; background: var(--accent); }
+        .tool-card .glow { position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; border-radius: 50%; filter: blur(40px); opacity: .35; background: var(--accent); pointer-events: none; }
+        .tool-card mark { background: rgba(34,211,238,.28); color: inherit; border-radius: 3px; padding: 0 1px; }
+
+        .no-hits { display: none; text-align: center; padding: 54px 20px; color: var(--muted); }
+        .no-hits i { font-size: 34px; color: var(--faint); display: block; margin-bottom: 12px; }
+        .no-hits h3 { color: var(--text); font-size: 16px; margin-bottom: 5px; }
 
         footer { text-align: center; color: var(--faint); font-size: 12.5px; margin-top: 44px; }
         footer b { color: var(--muted); }
 
-        @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+        @media (max-width: 720px) {
+            .wrap { padding: 26px 16px 48px; }
+            header h1 { font-size: 25px; }
+            .hub-bar { gap: 10px; }
+            .cats { width: 100%; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+            .cats::-webkit-scrollbar { display: none; }
+            .tool-card { padding: 17px; gap: 12px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .blob { animation: none; }
+            .tool-card, .tool-card .arrow { transition: none; }
+            .tool-card:hover { transform: none; }
+        }
     </style>
 </head>
 <body>
@@ -127,35 +193,106 @@
             <span class="badge-ct"><b>{{ tools|length }}</b> tools &middot; <b>{{ tools|selectattr('status', 'equalto', 'ready')|list|length }}</b> available</span>
         </header>
 
-        <div class="grid">
+        <div class="hub-bar">
+            <label class="hub-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input id="q" type="search" placeholder="Search {{ tools|length }} tools&hellip;" autocomplete="off" aria-label="Search tools">
+                <button class="hub-clear" id="qClear" type="button" aria-label="Clear search"><i class="fa-solid fa-xmark"></i></button>
+            </label>
+            <div class="cats" id="cats" role="tablist">
+                <button class="cat on" data-cat="" role="tab" aria-selected="true">All <span class="n">{{ tools|length }}</span></button>
+                {% for cat in tools|map(attribute='category')|unique|list %}
+                <button class="cat" data-cat="{{ cat }}" role="tab" aria-selected="false">
+                    {{ cat }} <span class="n">{{ tools|selectattr('category','equalto',cat)|list|length }}</span>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="grid" id="grid">
             {% for tool in tools %}
             <a class="tool-card {{ 'ready' if tool.status == 'ready' else 'soon' }}"
                href="{{ tool.route if tool.status == 'ready' else 'javascript:void(0)' }}"
-               {% if tool.status != 'ready' %}onclick="return false;"{% endif %}>
+               data-cat="{{ tool.category }}"
+               data-text="{{ (tool.name ~ ' ' ~ tool.description ~ ' ' ~ tool.category)|lower }}"
+               {% if tool.status != 'ready' %}onclick="return false;" tabindex="-1" aria-disabled="true"{% endif %}>
                 <div class="glow"></div>
-                <span class="num">{{ tool.number }}</span>
                 <div class="t-ico"><i class="{{ tool.icon }}"></i></div>
-                <div class="t-body">
-                    <div class="t-title">
-                        <h3>{{ tool.name }}</h3>
-                        {% if tool.star %}<i class="fa-solid fa-star" style="color:var(--amber);font-size:13px"></i>{% endif %}
-                    </div>
-                    <p>{{ tool.description }}</p>
+                <div class="t-head">
+                    <h3>{{ tool.name }}</h3>
+                    {% if tool.star %}<i class="fa-solid fa-star" style="color:var(--amber);font-size:12px" title="Popular"></i>{% endif %}
+                    <span class="num">{{ tool.number }}</span>
                 </div>
-                <div class="t-status">
-                    {% if tool.status == 'ready' %}
-                        <i class="fa-solid fa-circle-check"></i> Available
-                    {% else %}
-                        <i class="fa-solid fa-hourglass-half"></i> Coming Soon
-                    {% endif %}
+                <p>{{ tool.description }}</p>
+                <div class="t-foot">
+                    <span class="t-cat">{{ tool.category }}</span>
+                    <span class="t-status">
+                        {% if tool.status == 'ready' %}
+                            <i class="fa-solid fa-circle-check"></i> Available
+                        {% else %}
+                            <i class="fa-solid fa-hourglass-half"></i> Coming Soon
+                        {% endif %}
+                    </span>
+                    <i class="fa-solid fa-arrow-right arrow"></i>
                 </div>
-                <i class="fa-solid fa-arrow-right arrow"></i>
             </a>
             {% endfor %}
+        </div>
+
+        <div class="no-hits" id="noHits">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <h3>No tools match</h3>
+            <p>Try a different search or pick another category.</p>
         </div>
 
         <footer>Powered by <b>db_tools</b> &middot; each tool lives in <code>db_tools.backend</code></footer>
     </div>
 
+
+    <script>
+    (function () {
+        const cards = Array.from(document.querySelectorAll(".tool-card"));
+        const input = document.getElementById("q");
+        const clear = document.getElementById("qClear");
+        const noHits = document.getElementById("noHits");
+        const grid = document.getElementById("grid");
+        let cat = "", term = "";
+
+        function apply() {
+            let shown = 0;
+            for (const card of cards) {
+                const okCat = !cat || card.dataset.cat === cat;
+                const okTerm = !term || card.dataset.text.includes(term);
+                const show = okCat && okTerm;
+                card.style.display = show ? "" : "none";
+                if (show) shown++;
+            }
+            noHits.style.display = shown ? "none" : "block";
+            grid.style.display = shown ? "" : "none";
+            clear.style.display = term ? "block" : "none";
+        }
+
+        input.addEventListener("input", (e) => { term = e.target.value.trim().toLowerCase(); apply(); });
+        clear.addEventListener("click", () => { input.value = ""; term = ""; apply(); input.focus(); });
+
+        document.getElementById("cats").addEventListener("click", (e) => {
+            const btn = e.target.closest(".cat");
+            if (!btn) return;
+            cat = btn.dataset.cat;
+            for (const b of document.querySelectorAll(".cat")) {
+                const on = b === btn;
+                b.classList.toggle("on", on);
+                b.setAttribute("aria-selected", on ? "true" : "false");
+            }
+            apply();
+        });
+
+        // "/" focuses search, Escape clears it.
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "/" && document.activeElement !== input) { e.preventDefault(); input.focus(); }
+            else if (e.key === "Escape" && document.activeElement === input) { input.value = ""; term = ""; apply(); input.blur(); }
+        });
+    })();
+    </script>
 </body>
 </html>

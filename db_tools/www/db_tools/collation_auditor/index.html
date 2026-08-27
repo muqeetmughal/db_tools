@@ -1,0 +1,75 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Charset & Collation Auditor · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-language{% endblock %}
+{% block tool_name %}Charset &amp; Collation Auditor{% endblock %}
+{% block tool_tagline %}Tables and columns that deviate from the database default{% endblock %}
+{% block chip_title %}Collations in Use{% endblock %}
+{% block chip_sub %}How many tables sit on each collation{% endblock %}
+{% block loading_text %}Reading charsets and collations&hellip;{% endblock %}
+{% block footer_note %}mixed collations break joins and defeat indexes{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Audit Options</h3>
+    <div class="sub">A different <b>charset</b> is the case that actually breaks joins; a different collation within the same charset only changes sorting</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fColumns" type="checkbox" checked> Check individual columns</label>
+                <label class="check"><input id="fTabOnly" type="checkbox"> Only <code>tab*</code> tables</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.collation_auditor.api.get_collation_report",
+    filename: "collation_audit",
+    statCount: 6,
+    doneMessage: "Collation audit complete",
+    params: () => ({
+        check_columns: document.getElementById("fColumns").checked,
+        only_doctype_tables: document.getElementById("fTabOnly").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-database", label: "Database Collation", value: d.summary.db_collation, raw: true, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-table", label: "Tables Scanned", value: d.summary.tables_scanned, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-table-columns", label: "Columns Scanned", value: d.summary.columns_scanned, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-layer-group", label: "Distinct Collations", value: d.summary.distinct_collations, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-triangle-exclamation", label: "Deviations", value: d.summary.issues, color: d.summary.issues ? "var(--amber)" : "var(--green)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => Object.entries(d.grouped.collations || {})
+        .sort((a, b) => b[1] - a[1])
+        .map(([c, n]) => ({ label: c || "(none)", value: n, icon: "fa-language", color: c === d.summary.db_collation ? "var(--green)" : "var(--amber)" })),
+    sections: [{
+        id: "collations",
+        title: "Deviations",
+        subtitle: "Columns are compared against their own table, tables against the database default",
+        icon: "fa-language",
+        placeholder: "Search table, column or collation…",
+        rows: (d) => d.findings,
+        filter: { label: "All levels", key: "level", options: [
+            { value: "table", label: "Table" }, { value: "column", label: "Column" },
+        ] },
+        columns: [
+            { key: "severity", label: "Severity", render: (r) => `<span class="pill ${r.severity}">${DBTool.esc(r.severity)}</span>` },
+            { key: "level", label: "Level", render: (r) => `<span class="pill muted">${DBTool.esc(r.level)}</span>` },
+            { key: "table_name", label: "Table", cls: "mono value" },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "column_name", label: "Column", cls: "mono" },
+            { key: "charset", label: "Charset", cls: "mono" },
+            { key: "collation", label: "Collation", render: (r) => `<span class="mono" style="color:var(--rose)">${DBTool.esc(r.collation)}</span>` },
+            { key: "expected", label: "Expected", render: (r) => `<span class="mono" style="color:var(--green)">${DBTool.esc(r.expected)}</span>` },
+            { key: "fix_sql", label: "Suggested SQL", cls: "mono" },
+        ],
+        empty: { icon: "fa-circle-check", title: "Collations are consistent", text: "Every table and column matches the database default." },
+    }],
+});
+</script>
+{% endblock %}

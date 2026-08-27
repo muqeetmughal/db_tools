@@ -1,0 +1,112 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}MariaDB Limits Auditor · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-gauge-high{% endblock %}
+{% block tool_name %}MariaDB Limits Auditor{% endblock %}
+{% block tool_tagline %}How close every table, column and index sits to a hard server limit{% endblock %}
+{% block chip_title %}Checks{% endblock %}
+{% block chip_sub %}Findings grouped by severity and limit{% endblock %}
+{% block loading_text %}Measuring the schema against server limits&hellip;{% endblock %}
+{% block footer_note %}limits read from this server, not assumed{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Audit Options</h3>
+    <div class="sub">Limits are resolved from the live server — page size and row format decide the real ceilings</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>Warn Above (% of limit)</label>
+            <input id="fWarn" type="number" value="70" min="1" max="100">
+        </div>
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fOk" type="checkbox"> Show objects that are within limits</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel" id="serverPanel" style="display:none">
+    <h3><i class="fa-solid fa-server"></i> Server Limits</h3>
+    <div class="sub">What this MariaDB instance actually enforces</div>
+    <div class="chips-row" id="serverChips"></div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const SEV = { violation: "critical", critical: "critical", warning: "warning", ok: "ok" };
+
+DBTool.init({
+    api: "db_tools.backend.mariadb_limits_auditor.api.get_limits_report",
+    filename: "mariadb_limits",
+    statCount: 6,
+    doneMessage: "Limits audit complete",
+    params: () => ({
+        warn_pct: document.getElementById("fWarn").value,
+        include_ok: document.getElementById("fOk").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-ban", label: "Limits Exceeded", value: d.summary.violations, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-triangle-exclamation", label: "Near Limit (90%+)", value: d.summary.critical, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-circle-info", label: "Worth Watching", value: d.summary.warnings, color: "var(--accent2)", bg: "rgba(34,211,238,.14)", paint: true },
+        { icon: "fa-table", label: "Tables Scanned", value: d.summary.tables_scanned, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-table-columns", label: "Columns Scanned", value: d.summary.columns_scanned, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-layer-group", label: "Indexes Scanned", value: d.summary.indexes_scanned, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        const colors = { violation: "var(--rose)", critical: "var(--amber)", warning: "var(--accent2)", ok: "var(--green)" };
+        for (const [k, v] of Object.entries(d.grouped.by_severity)) {
+            if (v) out.push({ label: k === "violation" ? "over the limit" : k, value: v, color: colors[k] });
+        }
+        for (const [k, v] of Object.entries(d.grouped.by_check)) {
+            out.push({ label: k, value: v, icon: "fa-ruler", color: "var(--muted)" });
+        }
+        return out;
+    },
+    afterRender: (d) => {
+        const s = d.server || {};
+        const items = [
+            ["fa-server", "MariaDB", d.summary.server_version],
+            ["fa-file", "Page size", s.page_size + " B"],
+            ["fa-table-cells", "Default row format", s.default_row_format || "—"],
+            ["fa-shield-halved", "Strict mode", s.strict_mode || "—"],
+            ["fa-arrows-left-right", "Max inline row", s.max_inline_row_bytes + " B"],
+            ["fa-box", "max_allowed_packet", d.summary.max_allowed_packet],
+        ];
+        document.getElementById("serverChips").innerHTML = items.map(([i, k, v]) =>
+            `<span class="grp-chip"><i class="fa-solid ${i}" style="color:var(--accent2);font-size:11px"></i>${DBTool.esc(k)} <b>${DBTool.esc(v)}</b></span>`
+        ).join("");
+        document.getElementById("serverPanel").style.display = "";
+    },
+    sections: [{
+        id: "limits",
+        title: "Against the Limits",
+        subtitle: "“Over the limit” means the server would reject this object today — usually surfacing as a failed migration",
+        icon: "fa-gauge-high",
+        placeholder: "Search check, table or object…",
+        rows: (d) => d.findings,
+        filter: { label: "All severities", key: "severity", options: [
+            { value: "violation", label: "Over the limit" },
+            { value: "critical", label: "Near limit (90%+)" },
+            { value: "warning", label: "Worth watching" },
+            { value: "ok", label: "Within limits" },
+        ] },
+        columns: [
+            { key: "severity", label: "Severity", render: (r) => `<span class="pill ${SEV[r.severity] || "info"}">${DBTool.esc(r.severity === "violation" ? "over limit" : r.severity)}</span>` },
+            { key: "check", label: "Limit", cls: "dt-name" },
+            { key: "object_type", label: "Object", render: (r) => `<span class="pill muted">${DBTool.esc(r.object_type)}</span>` },
+            { key: "table_name", label: "Table", cls: "mono value" },
+            { key: "object_name", label: "Name", cls: "mono" },
+            { key: "actual", label: "Actual", type: "number" },
+            { key: "limit", label: "Limit", type: "number" },
+            { key: "usage_pct", label: "Usage", type: "number", render: (r) => `${r.usage_pct}%<div class="bar"><span style="width:${Math.min(r.usage_pct, 100)}%;${r.usage_pct >= 100 ? "background:var(--rose)" : ""}"></span></div>` },
+            { key: "suggestion", label: "Suggestion", cls: "reason" },
+        ],
+        empty: { icon: "fa-circle-check", title: "Everything is within limits", text: "No table, column or index is close to a MariaDB ceiling." },
+    }],
+});
+</script>
+{% endblock %}

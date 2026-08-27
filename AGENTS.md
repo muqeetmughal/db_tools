@@ -8,7 +8,7 @@ A Frappe app that ships a suite of **read-only** database inspection tools, serv
 website pages under `/db_tools`. There are no DocTypes and no desk pages — every tool is
 a whitelisted API plus a Jinja page.
 
-**All ten tools are implemented and working.** Nothing is stubbed.
+**All eighteen tools are implemented and working.** Nothing is stubbed.
 
 ## Layout
 
@@ -36,22 +36,35 @@ substantially more complex. Every other tool fits in a single `api.py`.
 `database_tools/api.py` is a backwards-compatible shim re-exporting
 `backend.schema_comparison.api`. Leave it alone unless removing it deliberately.
 
-## The ten tools
+## The eighteen tools
 
-| Key | Endpoint |
-|---|---|
-| `schema_comparison` | `...schema_comparison.api.get_extra_db_columns_report` |
-| `broken_link_detector` | `...broken_link_detector.api.get_broken_links_report` |
-| `orphan_child_detector` | `...orphan_child_detector.api.get_orphan_children_report` |
-| `orphan_table_finder` | `...orphan_table_finder.api.get_orphan_tables_report` |
-| `largest_tables_analyzer` | `...largest_tables_analyzer.api.get_largest_tables_report` |
-| `duplicate_index_detector` | `...duplicate_index_detector.api.get_duplicate_indexes_report` |
-| `missing_index_advisor` | `...missing_index_advisor.api.get_missing_indexes_report` |
-| `database_health_report` | `...database_health_report.api.get_health_report` |
-| `migration_sql_generator` | `...migration_sql_generator.api.get_migration_sql` |
-| `site_schema_comparison` | `...site_schema_comparison.api.get_site_schema_comparison` |
+Every endpoint is prefixed `db_tools.backend.`. `category` on each registry entry
+drives the hub page's filter chips.
 
-All prefixed `db_tools.backend.`.
+| # | Key | Category | Endpoint (`<key>.api.…`) |
+|---|---|---|---|
+| 01 | `schema_comparison` | Schema | `get_extra_db_columns_report` |
+| 02 | `broken_link_detector` | Integrity | `get_broken_links_report` |
+| 03 | `orphan_child_detector` | Integrity | `get_orphan_children_report` |
+| 04 | `orphan_table_finder` | Schema | `get_orphan_tables_report` |
+| 05 | `largest_tables_analyzer` | Storage | `get_largest_tables_report` |
+| 06 | `duplicate_index_detector` | Performance | `get_duplicate_indexes_report` |
+| 07 | `missing_index_advisor` | Performance | `get_missing_indexes_report` |
+| 08 | `database_health_report` | Operations | `get_health_report` |
+| 09 | `migration_sql_generator` | Operations | `get_migration_sql` |
+| 10 | `site_schema_comparison` | Operations | `get_site_schema_comparison`, `get_sites` |
+| 11 | `schema_drift_detector` | Schema | `get_schema_drift_report` |
+| 12 | `empty_column_analyzer` | Storage | `get_empty_columns_report` |
+| 13 | `log_table_analyzer` | Storage | `get_log_tables_report` |
+| 14 | `customization_auditor` | Integrity | `get_customization_report` |
+| 15 | `collation_auditor` | Schema | `get_collation_report` |
+| 16 | `fragmentation_analyzer` | Performance | `get_fragmentation_report` |
+| 17 | `row_size_auditor` | Schema | `get_row_size_report` |
+| 18 | `mariadb_limits_auditor` | Schema | `get_limits_report` |
+
+Tools 01/11, 05/12/13 and 17/18 are deliberately adjacent — extra columns vs missing
+columns, size vs waste vs growth, the SQL-layer row limit vs every server limit.
+Check whether an existing tool already covers a question before adding a nineteenth.
 
 ## Non-negotiable rules
 
@@ -150,6 +163,21 @@ copy button instead of a table (see `migration_sql_generator`).
 Always escape interpolated values in a `render` with `DBTool.esc(...)` — row values come
 from the database.
 
+## Deriving expected values — use Frappe, don't reimplement
+
+Several tools compare the database against what Frappe *would* create. Always call
+Frappe's own code for that; hand-rolled equivalents produce false positives:
+
+- **Column definitions**: `frappe.database.schema.get_definition(fieldtype, precision,
+  length, options=...)`, not a raw `frappe.db.type_map` lookup. The type map ignores
+  per-field `length` and `precision` overrides — reading it directly produced 88 phantom
+  "length mismatches" from fields like `Address.address_line1` (varchar(240)) and
+  `Appraisal KRA.goal_score` (decimal(21,2)).
+- **Fields with no column**: `frappe.model.no_value_fields`, which already includes
+  `Table` and `Table MultiSelect`.
+- **Declared storage engine**: `DocType.engine`. A few Frappe log DocTypes ask for
+  MyISAM on purpose, so "not InnoDB" is only drift when it disagrees with that field.
+
 ## Known-good behaviour (verified against atlas.localhost)
 
 - The pre-existing `db_tools/tests/test_broken_links.py` has **8 failing tests**
@@ -167,6 +195,21 @@ These are correct results on a healthy site, not bugs:
   (e.g. `tabAccount.lft` covered by `lft_rgt_index (lft, rgt)`). These are real.
 - **`PRIMARY` is never suggested for dropping**, and a unique index is never reported as
   redundant against a non-unique one.
+- **`utf8mb4_bin` on a longtext column is not a collation problem** — that is MariaDB's
+  own representation of a JSON column. The Collation Auditor skips it, and only treats a
+  differing *charset* as critical; a different collation within utf8mb4 is info.
+- **Row size has two different ceilings, and they need different maths.** The SQL-layer
+  limit (65,535) counts every column's full declared width — that is what
+  `row_size_auditor` measures. InnoDB additionally needs two rows per page (~8,127 bytes
+  for a 16K page), but on DYNAMIC/COMPRESSED it may push any variable-length column
+  off-page for a 20-byte pointer, so only `innodb_row_bytes()` in `mariadb_limits_auditor`
+  models that correctly. Charging full varchar width against the page limit reported 130
+  violations on tables that store perfectly well.
+- **FULLTEXT and SPATIAL indexes are exempt from the 3072-byte key limit** — checking
+  them flags `__global_search.content` at 2133% of a limit that does not apply to it.
+- **Schema Drift reports ~20 missing columns and ~10 JSON→longtext mismatches** on a
+  stock bench. Both are real: columns awaiting a migration, and JSON fields created
+  before Frappe mapped them to a native `json` column.
 
 ## Testing
 
