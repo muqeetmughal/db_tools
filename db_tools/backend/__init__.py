@@ -4,6 +4,16 @@ Every tool lives in a folder under ``db_tools.backend``. Add new tools here to
 make them show up on the /db_tools hub page.
 """
 
+# Shown in the footer of every tool page and on the hub. Single source of
+# truth — the pages read it from the request context, nothing hardcodes it.
+AUTHOR = {
+    "name": "Muqeet Mughal",
+    "role": "Frappe / ERPNext developer",
+    "linkedin": "https://www.linkedin.com/in/muqeetmughal/",
+    "github": "https://github.com/muqeetmughal",
+    "initials": "MM",
+}
+
 TOOLS = [
     {
         "number": "01",

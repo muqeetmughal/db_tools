@@ -125,9 +125,20 @@
         .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); background: #141b3a; border: 1px solid rgba(255,255,255,.14); color: var(--text); padding: 12px 20px; border-radius: 12px; font-size: 13.5px; font-weight: 500; box-shadow: 0 14px 40px rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 60; }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-        footer { text-align: center; color: var(--faint); font-size: 12px; margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 18px; }
+        footer { text-align: center; color: var(--faint); font-size: 12px; margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; }
         footer a { color: var(--accent2); text-decoration: none; font-weight: 600; }
         footer a:hover { text-decoration: underline; }
+        .by {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 5px 12px; border-radius: 20px;
+            background: var(--card); border: 1px solid var(--card-border);
+            color: var(--muted) !important; font-weight: 500; text-decoration: none;
+            transition: border-color .2s ease, color .2s ease, background .2s ease;
+        }
+        .by:hover { text-decoration: none !important; background: var(--card-hover); border-color: rgba(10,102,194,.55); color: var(--text) !important; }
+        .by b { color: var(--text); font-weight: 600; }
+        .by .li { color: #0a66c2; font-size: 14px; }
+        .by:hover .li { color: #2f8ae0; }
 
         @media (max-width: 960px) { .cards { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 640px) { .cards { grid-template-columns: repeat(2, 1fr); } }
@@ -245,8 +256,14 @@
         </div>
 
         <footer>
-            Powered by <b>db_tools</b> &middot; read-only integrity scan
-            &middot; <a href="/db_tools"><i class="fa-solid fa-grid-2"></i> All tools</a>
+            <span>Powered by <b>db_tools</b> &middot; read-only integrity scan</span>
+            <a href="/db_tools"><i class="fa-solid fa-table-cells-large"></i> All tools</a>
+            {% if author %}
+            <a class="by" href="{{ author.linkedin }}" target="_blank" rel="noopener noreferrer"
+               title="Connect with {{ author.name }} on LinkedIn">
+                <i class="fa-brands fa-linkedin li"></i> Built by <b>{{ author.name }}</b>
+            </a>
+            {% endif %}
         </footer>
     </div>
 

@@ -149,6 +149,16 @@ cd apps/db_tools
 pre-commit install
 ```
 
+## Author
+
+Built by **Muqeet Mughal** — Frappe / ERPNext developer.
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0a66c2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/muqeetmughal/)
+[![GitHub](https://img.shields.io/badge/GitHub-muqeetmughal-181717?logo=github&logoColor=white)](https://github.com/muqeetmughal)
+
+If this app saved you a painful afternoon, a note on
+[LinkedIn](https://www.linkedin.com/in/muqeetmughal/) is always welcome.
+
 ## License
 
 MIT

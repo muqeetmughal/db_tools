@@ -133,9 +133,20 @@
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .toast.err { border-color: rgba(244,63,94,.5); }
 
-        footer { text-align: center; color: var(--faint); font-size: 12px; margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 18px; flex-wrap: wrap; }
+        footer { text-align: center; color: var(--faint); font-size: 12px; margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; }
         footer a { color: var(--accent2); text-decoration: none; font-weight: 600; }
         footer a:hover { text-decoration: underline; }
+        .by {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 5px 12px; border-radius: 20px;
+            background: var(--card); border: 1px solid var(--card-border);
+            color: var(--muted) !important; font-weight: 500; text-decoration: none;
+            transition: border-color .2s ease, color .2s ease, background .2s ease;
+        }
+        .by:hover { text-decoration: none !important; background: var(--card-hover); border-color: rgba(10,102,194,.55); color: var(--text) !important; }
+        .by b { color: var(--text); font-weight: 600; }
+        .by .li { color: #0a66c2; font-size: 14px; }
+        .by:hover .li { color: #2f8ae0; }
 
         @media (max-width: 960px) { .cards { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 640px) { .cards { grid-template-columns: repeat(2, 1fr); } }
@@ -180,8 +191,14 @@
         <div id="sections"></div>
 
         <footer>
-            Powered by <b>db_tools</b> &middot; {% block footer_note %}read-only inspection{% endblock %}
-            &middot; <a href="/db_tools"><i class="fa-solid fa-table-cells-large"></i> All tools</a>
+            <span>Powered by <b>db_tools</b> &middot; {% block footer_note %}read-only inspection{% endblock %}</span>
+            <a href="/db_tools"><i class="fa-solid fa-table-cells-large"></i> All tools</a>
+            {% if author %}
+            <a class="by" href="{{ author.linkedin }}" target="_blank" rel="noopener noreferrer"
+               title="Connect with {{ author.name }} on LinkedIn">
+                <i class="fa-brands fa-linkedin li"></i> Built by <b>{{ author.name }}</b>
+            </a>
+            {% endif %}
         </footer>
     </div>
 

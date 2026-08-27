@@ -61,7 +61,11 @@ def guard_page(context=None):
     guard()
 
     if context is not None:
+        from db_tools.backend import AUTHOR
+
         context.no_cache = 1
+        # Every page renders the attribution from here, so it stays in one place.
+        context.author = AUTHOR
 
     return context
 
