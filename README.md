@@ -27,6 +27,11 @@ no longer reachable from any parent, each with the reason it was flagged.
 
 <br>
 
+**MariaDB Limits Auditor** — 1,109 tables and 23,931 columns measured against the limits
+this server actually enforces, read from the live instance rather than assumed.
+
+![The MariaDB Limits Auditor, showing the server's real limits and how close each object sits to them](db_tools/public/images/mariadb_limits_auditor.png)
+
 **Broken Link Detector** — a scan across 193,000 records, with findings grouped by
 severity and source DocType, and configuration problems reported separately from broken
 data.
