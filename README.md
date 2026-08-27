@@ -11,12 +11,52 @@ the live database rather than guessing from the schema files.
 Nothing in this app writes, alters or deletes. Where a fix is obvious it is emitted as
 SQL for a human to review and run.
 
+## What it looks like
+
+**The hub** — all eighteen tools, searchable and filtered by category.
+
+![The Database Tools hub, showing all eighteen tools grouped by category](db_tools/public/images/tools_preview.png)
+
+**Orphan Child Detector** — 34,295 child rows checked in about three seconds, 65 of them
+no longer reachable from any parent, each with the reason it was flagged.
+
+![The Orphan Child Detector, showing summary tiles, a breakdown by DocType and a table of orphan rows](db_tools/public/images/orphan_child_detector.png)
+
+<details>
+<summary><b>More screenshots</b></summary>
+
+<br>
+
+**Broken Link Detector** — a scan across 193,000 records, with findings grouped by
+severity and source DocType, and configuration problems reported separately from broken
+data.
+
+![The Broken Link Detector after a scan, showing summary tiles and a severity breakdown](db_tools/public/images/broken_link_detector.png)
+
+**Schema Comparison** — summary tiles, a breakdown of which apps contribute the drift,
+and a filterable, sortable report.
+
+![The Schema Comparison tool, showing summary tiles, charts and a detailed report](db_tools/public/images/schema_comparison.png)
+
+</details>
+
+<!--
+  Adding a screenshot: drop the PNG in db_tools/public/images/ and add a line inside
+  the collapsible "More screenshots" block above, as
+
+      ![Alt text describing the screenshot](db_tools/public/images/<file>.png)
+
+  Paths must stay repo-relative — GitHub resolves them from the README, and /assets/
+  URLs only exist on a running bench.
+-->
+
 ---
 
 ## The tools
 
-Eighteen tools, all working. Each one is a page with filters, a sortable and searchable
-table, and JSON / CSV / Markdown export.
+Eighteen tools, all working. Each one is a page with filters and a sortable, searchable
+table, and every report can be pulled as JSON, CSV or Markdown — from the page, or
+straight from the API.
 
 ### Schema
 
