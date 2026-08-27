@@ -31,7 +31,7 @@ TOOLS = [
         "icon": "fa-solid fa-child",
         "description": "Detect child table rows whose parent document no longer exists.",
         "route": "/db_tools/orphan_child_detector",
-        "status": "coming_soon",
+        "status": "ready",
     },
     {
         "number": "04",
@@ -40,7 +40,7 @@ TOOLS = [
         "icon": "fa-solid fa-table",
         "description": "Find database tables that belong to no installed DocType.",
         "route": "/db_tools/orphan_table_finder",
-        "status": "coming_soon",
+        "status": "ready",
     },
     {
         "number": "05",
@@ -49,7 +49,7 @@ TOOLS = [
         "icon": "fa-solid fa-chart-column",
         "description": "Analyze which tables consume the most space in the database.",
         "route": "/db_tools/largest_tables_analyzer",
-        "status": "coming_soon",
+        "status": "ready",
     },
     {
         "number": "06",
@@ -58,7 +58,7 @@ TOOLS = [
         "icon": "fa-solid fa-copy",
         "description": "Find redundant or duplicate database indexes across tables.",
         "route": "/db_tools/duplicate_index_detector",
-        "status": "coming_soon",
+        "status": "ready",
     },
     {
         "number": "07",
@@ -67,7 +67,7 @@ TOOLS = [
         "icon": "fa-solid fa-wand-magic-sparkles",
         "description": "Suggest indexes for columns commonly used in filters and joins.",
         "route": "/db_tools/missing_index_advisor",
-        "status": "coming_soon",
+        "status": "ready",
     },
     {
         "number": "08",
@@ -76,7 +76,7 @@ TOOLS = [
         "icon": "fa-solid fa-heart-pulse",
         "description": "Generate an overall health report for the site database.",
         "route": "/db_tools/database_health_report",
-        "status": "coming_soon",
+        "status": "ready",
     },
     {
         "number": "09",
@@ -85,15 +85,15 @@ TOOLS = [
         "icon": "fa-solid fa-file-code",
         "description": "Generate SQL to clean up detected issues, ready to review and run.",
         "route": "/db_tools/migration_sql_generator",
-        "status": "coming_soon",
+        "status": "ready",
     },
     {
         "number": "10",
         "key": "site_schema_comparison",
         "name": "Site Schema Comparison",
-        "icon": "fa-solid fa-compress",
+        "icon": "fa-solid fa-code-compare",
         "description": "Compare the schema of two sites or environments side by side.",
         "route": "/db_tools/site_schema_comparison",
-        "status": "coming_soon",
+        "status": "ready",
     },
 ]

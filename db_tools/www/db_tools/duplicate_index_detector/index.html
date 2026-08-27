@@ -1,0 +1,81 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Duplicate Index Detector · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-copy{% endblock %}
+{% block tool_name %}Duplicate Index Detector{% endblock %}
+{% block tool_tagline %}Indexes already covered by another index on the same table{% endblock %}
+{% block chip_sub %}Redundant indexes grouped by kind and table{% endblock %}
+{% block loading_text %}Comparing every index in the database&hellip;{% endblock %}
+{% block footer_note %}suggests DROP statements — never runs them{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Detection Options</h3>
+    <div class="sub">An index is redundant when its columns are a leading prefix of a wider index</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fPrefix" type="checkbox" checked> Include redundant prefixes</label>
+                <label class="check"><input id="fFulltext" type="checkbox"> Include FULLTEXT / SPATIAL</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.duplicate_index_detector.api.get_duplicate_indexes_report",
+    filename: "duplicate_indexes",
+    statCount: 6,
+    doneMessage: "Index comparison complete",
+    params: () => ({
+        include_prefix: document.getElementById("fPrefix").checked,
+        include_fulltext: document.getElementById("fFulltext").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-table", label: "Tables Scanned", value: d.summary.tables_scanned, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-layer-group", label: "Indexes Scanned", value: d.summary.indexes_scanned, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-clone", label: "Exact Duplicates", value: d.summary.exact_duplicates, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-arrows-left-right", label: "Redundant Prefixes", value: d.summary.redundant_prefixes, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-cubes", label: "Affected Tables", value: d.summary.affected_tables, color: "var(--amber)", bg: "rgba(245,158,11,.14)" },
+        { icon: "fa-hard-drive", label: "Total Index Size", value: d.summary.total_index_size, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const out = [];
+        for (const [k, v] of Object.entries(d.grouped.by_kind)) {
+            out.push({ label: k, value: v, icon: "fa-tag", color: k === "exact duplicate" ? "var(--rose)" : "var(--amber)" });
+        }
+        Object.entries(d.grouped.by_table).sort((a, b) => b[1] - a[1]).slice(0, 6)
+            .forEach(([t, n]) => out.push({ label: t, value: n, icon: "fa-table", color: "var(--muted)" }));
+        return out;
+    },
+    sections: [{
+        id: "dupes",
+        title: "Redundant Indexes",
+        subtitle: "Each row names the index that already covers it — review before dropping anything",
+        icon: "fa-copy",
+        placeholder: "Search table, index or column…",
+        rows: (d) => d.findings,
+        filter: { label: "All kinds", key: "kind", options: [
+            { value: "exact duplicate", label: "Exact duplicate" },
+            { value: "redundant prefix", label: "Redundant prefix" },
+        ] },
+        columns: [
+            { key: "severity", label: "Kind", render: (r) => `<span class="pill ${r.severity}">${DBTool.esc(r.kind)}</span>` },
+            { key: "table_name", label: "Table", cls: "mono value" },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "index_name", label: "Index", cls: "mono" },
+            { key: "columns", label: "Columns", cls: "mono" },
+            { key: "duplicate_of", label: "Covered By", cls: "mono" },
+            { key: "covering_columns", label: "Covering Columns", cls: "mono" },
+            { key: "table_rows", label: "Rows", type: "number" },
+            { key: "drop_sql", label: "Suggested SQL", cls: "mono" },
+        ],
+        empty: { icon: "fa-circle-check", title: "No duplicate indexes", text: "Every index on every table earns its place." },
+    }],
+});
+</script>
+{% endblock %}

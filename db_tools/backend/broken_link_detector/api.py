@@ -4,9 +4,10 @@ import frappe
 
 from db_tools.backend.broken_link_detector.broken_links import detect_broken_links
 from db_tools.backend.broken_link_detector.utils import as_bool
+from db_tools.backend.common import guard
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_broken_links_report(
     doctype: str | None = None,
     include_dynamic: bool = True,
@@ -22,6 +23,7 @@ def get_broken_links_report(
     or ``console`` — non-json formats return ``{"data": "<rendered>"}`` for
     direct download.
     """
+    guard()
     report = detect_broken_links(
         doctype=doctype or None,
         include_dynamic=as_bool(include_dynamic),

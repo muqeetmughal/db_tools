@@ -1,0 +1,111 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Database Health Report · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-heart-pulse{% endblock %}
+{% block tool_name %}Database Health Report{% endblock %}
+{% block tool_tagline %}Every db_tools check rolled up into one score{% endblock %}
+{% block run_label %}Run Report{% endblock %}
+{% block chip_title %}Categories{% endblock %}
+{% block chip_sub %}How the checks landed per area{% endblock %}
+{% block loading_text %}Running every health check&hellip;{% endblock %}
+{% block footer_note %}aggregates the other tools{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Report Options</h3>
+    <div class="sub">Deep scans walk row data and take noticeably longer on a large site</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>Deep Scan Limit</label>
+            <input id="fLimit" type="number" value="500" min="1">
+        </div>
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fDeep" type="checkbox"> Deep scan (orphan rows + broken links)</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const STATUS_PILL = { ok: "ok", warning: "warning", critical: "critical", skipped: "muted" };
+const STATUS_ICON = { ok: "fa-circle-check", warning: "fa-triangle-exclamation", critical: "fa-circle-exclamation", skipped: "fa-circle-minus" };
+
+function gradeColor(score) {
+    if (score >= 90) return "var(--green)";
+    if (score >= 75) return "var(--accent2)";
+    if (score >= 60) return "var(--amber)";
+    return "var(--rose)";
+}
+
+DBTool.init({
+    api: "db_tools.backend.database_health_report.api.get_health_report",
+    filename: "database_health",
+    statCount: 6,
+    doneMessage: "Health report ready",
+    params: () => ({
+        deep: document.getElementById("fDeep").checked,
+        link_limit: document.getElementById("fLimit").value,
+    }),
+    stats: (d) => [
+        { icon: "fa-heart-pulse", label: "Health Score", value: d.summary.score + " / 100 · " + d.summary.grade, raw: true, color: gradeColor(d.summary.score), bg: "rgba(52,211,153,.14)", paint: true },
+        { icon: "fa-database", label: "Database Size", value: d.summary.total_size, raw: true, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-circle-check", label: "Checks Passed", value: d.summary.ok, color: "var(--green)", bg: "rgba(52,211,153,.14)", paint: true },
+        { icon: "fa-triangle-exclamation", label: "Warnings", value: d.summary.warnings, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-circle-exclamation", label: "Critical", value: d.summary.critical, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+    ],
+    chips: (d) => {
+        const by = {};
+        d.checks.forEach(c => { by[c.category] = by[c.category] || { ok: 0, warning: 0, critical: 0, skipped: 0 }; by[c.category][c.status]++; });
+        return Object.entries(by).map(([cat, counts]) => {
+            const color = counts.critical ? "var(--rose)" : counts.warning ? "var(--amber)" : "var(--green)";
+            return { label: cat, value: `${counts.ok}✓ ${counts.warning}⚠ ${counts.critical}✕`, raw: true, icon: "fa-folder", color };
+        });
+    },
+    sections: [
+        {
+            id: "checks",
+            title: "Checks",
+            subtitle: "Each row links to the tool that produced it",
+            icon: "fa-list-check",
+            placeholder: "Search check, category or message…",
+            rows: (d) => d.checks,
+            filter: { label: "All statuses", key: "status", options: [
+                { value: "critical", label: "Critical" }, { value: "warning", label: "Warning" },
+                { value: "ok", label: "OK" }, { value: "skipped", label: "Skipped" },
+            ] },
+            columns: [
+                { key: "status", label: "Status", render: (r) => `<span class="pill ${STATUS_PILL[r.status] || "muted"}"><i class="fa-solid ${STATUS_ICON[r.status]}"></i>${DBTool.esc(r.status)}</span>` },
+                { key: "check", label: "Check", cls: "dt-name" },
+                { key: "category", label: "Category" },
+                { key: "value", label: "Value", cls: "mono value" },
+                { key: "message", label: "Detail", cls: "reason" },
+                { key: "tool", label: "Tool", render: (r) => r.route ? `<a href="${DBTool.esc(r.route)}" style="color:var(--accent2);text-decoration:none;font-weight:600">${DBTool.esc(r.tool)} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px"></i></a>` : DBTool.esc(r.tool || "—") },
+            ],
+            empty: { icon: "fa-circle-check", title: "No checks ran", text: "Try running the report again." },
+        },
+        {
+            id: "top_tables",
+            title: "Largest Tables",
+            subtitle: "The ten biggest consumers of space",
+            icon: "fa-chart-column",
+            placeholder: "Search table…",
+            hideWhenEmpty: true,
+            rows: (d) => d.top_tables || [],
+            columns: [
+                { key: "table_name", label: "Table", cls: "mono value" },
+                { key: "doctype", label: "DocType", cls: "dt-name" },
+                { key: "rows", label: "Rows", type: "number" },
+                { key: "total_bytes", label: "Size", type: "number", render: (r) => DBTool.esc(r.total_size) },
+                { key: "pct_of_db", label: "% of DB", type: "number", render: (r) => `${r.pct_of_db}%<div class="bar"><span style="width:${Math.min(r.pct_of_db, 100)}%"></span></div>` },
+            ],
+            empty: { icon: "fa-circle-info", color: "var(--accent2)", title: "No table sizes", text: "" },
+        },
+    ],
+});
+</script>
+{% endblock %}

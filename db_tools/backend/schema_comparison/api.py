@@ -2,6 +2,8 @@ import os
 import json
 import frappe
 
+from db_tools.backend.common import guard
+
 # Standard columns present on every DocType
 STANDARD_COLUMNS = {
     "name",
@@ -93,7 +95,6 @@ def find_doctype_json_paths(app_path):
 
 def find_extra_db_columns():
     bench_path = frappe.utils.get_bench_path()
-    print(f"Scanning apps in bench path: {bench_path}")
     apps_path = os.path.join(bench_path, "apps")
 
     report = []
@@ -102,14 +103,12 @@ def find_extra_db_columns():
         if app in {"frappe", "erpnext"}:
             continue
 
-        print(f"Scanning app: {app}")
         app_path = os.path.join(apps_path, app)
 
         if not os.path.isdir(app_path):
             continue
 
         for json_path in find_doctype_json_paths(app_path):
-            # print(f"  Checking doctype schema: {json_path}")
             try:
                 with open(json_path, "r", encoding="utf-8") as f:
                     meta = json.load(f)
@@ -117,8 +116,6 @@ def find_extra_db_columns():
                 continue
 
             doctype = meta.get("name")
-
-            print(f"    Found doctype: {doctype}")
             if not doctype:
                 continue
 
@@ -127,10 +124,8 @@ def find_extra_db_columns():
             if not frappe.db.table_exists(doctype):
                 continue
 
-            print(f"      Checking table: {table}")
-
             expected_fields = get_expected_fields(meta)
-        
+
             db_columns = {
                 row.Field
                 for row in frappe.db.sql(
@@ -138,8 +133,6 @@ def find_extra_db_columns():
                     as_dict=True,
                 )
             }
-            print(f"      Expected fields: {expected_fields}")
-            print(f"      Database columns: {db_columns}")
 
             extra_columns = sorted(db_columns - expected_fields)
 
@@ -185,9 +178,10 @@ def print_extra_db_columns():
     return report
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_extra_db_columns_report():
     """Whitelisted API returning the extra-columns report as JSON for the dashboard."""
+    guard()
     report = find_extra_db_columns()
 
     bench_path = frappe.utils.get_bench_path()

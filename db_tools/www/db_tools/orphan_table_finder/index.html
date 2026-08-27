@@ -1,0 +1,89 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Orphan Table Finder · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-table{% endblock %}
+{% block tool_name %}Orphan Table Finder{% endblock %}
+{% block tool_tagline %}Tables with no matching DocType, and DocTypes with no table{% endblock %}
+{% block chip_sub %}Where the leftover tables came from{% endblock %}
+{% block loading_text %}Matching database tables against installed DocTypes&hellip;{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Scan Options</h3>
+    <div class="sub">Reads information_schema only &middot; nothing is dropped</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fNonTab" type="checkbox" checked> Include non-<code>tab</code> tables</label>
+                <label class="check"><input id="fMissing" type="checkbox" checked> Include DocTypes without a table</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.orphan_table_finder.api.get_orphan_tables_report",
+    filename: "orphan_tables",
+    statCount: 5,
+    doneMessage: "Table scan complete",
+    params: () => ({
+        include_non_tab: document.getElementById("fNonTab").checked,
+        include_missing_tables: document.getElementById("fMissing").checked,
+    }),
+    stats: (d) => [
+        { icon: "fa-table", label: "Tables in Database", value: d.summary.tables_in_db, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-cubes", label: "DocTypes", value: d.summary.doctypes, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-ghost", label: "Orphan Tables", value: d.summary.orphan_tables, color: "var(--amber)", bg: "rgba(245,158,11,.14)", paint: true },
+        { icon: "fa-triangle-exclamation", label: "Missing Tables", value: d.summary.missing_tables, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-hard-drive", label: "Reclaimable", value: d.summary.reclaimable, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        const by = {};
+        (d.orphans || []).forEach(o => { by[o.kind] = (by[o.kind] || 0) + 1; });
+        return Object.entries(by).map(([k, v]) => ({ label: k, value: v, icon: "fa-tag", color: "var(--amber)" }));
+    },
+    sections: [
+        {
+            id: "orphans",
+            title: "Orphan Tables",
+            subtitle: "Present in the database, but no DocType claims them — usually left behind by an uninstalled app",
+            icon: "fa-ghost",
+            placeholder: "Search table or reason…",
+            rows: (d) => d.orphans,
+            columns: [
+                { key: "table_name", label: "Table", cls: "mono value" },
+                { key: "guessed_doctype", label: "Would-be DocType", cls: "dt-name" },
+                { key: "kind", label: "Kind", render: (r) => `<span class="pill ${r.kind === "orphan doctype table" ? "warning" : "muted"}">${DBTool.esc(r.kind)}</span>` },
+                { key: "rows", label: "Rows", type: "number" },
+                { key: "size_bytes", label: "Size", type: "number", render: (r) => DBTool.esc(r.size) },
+                { key: "engine", label: "Engine", cls: "mono" },
+                { key: "reason", label: "Reason", cls: "reason" },
+                { key: "drop_sql", label: "Suggested SQL", cls: "mono" },
+            ],
+            empty: { icon: "fa-circle-check", title: "No orphan tables", text: "Every table in the database maps to an installed DocType." },
+        },
+        {
+            id: "missing",
+            title: "DocTypes Without a Table",
+            subtitle: "The DocType exists but its table was never created — usually fixed by `bench migrate`",
+            icon: "fa-triangle-exclamation",
+            placeholder: "Search doctype or module…",
+            hideWhenEmpty: true,
+            rows: (d) => d.missing || [],
+            columns: [
+                { key: "guessed_doctype", label: "DocType", cls: "dt-name" },
+                { key: "table_name", label: "Expected Table", cls: "mono value" },
+                { key: "module", label: "Module" },
+                { key: "is_child_table", label: "Child Table", render: (r) => r.is_child_table ? `<span class="pill info">child</span>` : "—" },
+                { key: "reason", label: "Reason", cls: "reason" },
+            ],
+            empty: { icon: "fa-circle-check", title: "No missing tables", text: "Every DocType has its table." },
+        },
+    ],
+});
+</script>
+{% endblock %}

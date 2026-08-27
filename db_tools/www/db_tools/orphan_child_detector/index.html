@@ -1,0 +1,96 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Orphan Child Detector · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-child{% endblock %}
+{% block tool_name %}Orphan Child Detector{% endblock %}
+{% block tool_tagline %}Child table rows whose parent document no longer exists{% endblock %}
+{% block chip_title %}Breakdown{% endblock %}
+{% block chip_sub %}Orphan rows grouped by severity and child DocType{% endblock %}
+{% block loading_text %}Joining child tables against their parents&hellip;{% endblock %}
+{% block footer_note %}read-only integrity scan{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Scan Options</h3>
+    <div class="sub">One LEFT JOIN per child table &amp; parenttype &middot; no per-row lookups</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>Child DocTypes</label>
+            <input id="fDoctype" type="text" placeholder="All (comma separated)">
+        </div>
+        <div class="fgroup">
+            <label>Max Findings</label>
+            <input id="fLimit" type="number" value="5000" min="0">
+        </div>
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fBlank" type="checkbox" checked> Include blank parents</label>
+                <label class="check"><input id="fParentfield" type="checkbox" checked> Validate parentfield</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const SEV = { critical: "critical", warning: "warning", info: "info" };
+
+DBTool.init({
+    api: "db_tools.backend.orphan_child_detector.api.get_orphan_children_report",
+    filename: "orphan_child_rows",
+    statCount: 6,
+    doneMessage: "Orphan child scan complete",
+    params: () => ({
+        doctype: document.getElementById("fDoctype").value.trim(),
+        include_blank_parent: document.getElementById("fBlank").checked,
+        check_parentfield: document.getElementById("fParentfield").checked,
+        limit: document.getElementById("fLimit").value,
+    }),
+    stats: (d) => [
+        { icon: "fa-table-cells", label: "Child DocTypes Scanned", value: d.summary.child_doctypes_scanned, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-diagram-project", label: "Parent Links Scanned", value: d.summary.parent_links_scanned, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-magnifying-glass", label: "Rows Checked", value: d.summary.rows_checked, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-child-reaching", label: "Orphan Rows", value: d.summary.orphan_rows, color: "var(--rose)", bg: "rgba(244,63,94,.14)", paint: true },
+        { icon: "fa-cubes", label: "Affected DocTypes", value: d.summary.affected_doctypes, color: "var(--amber)", bg: "rgba(245,158,11,.14)" },
+        { icon: "fa-stopwatch", label: "Duration (s)", value: d.summary.execution_time, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => {
+        if (!d.findings.length) return [];
+        const out = [];
+        for (const [k, v] of Object.entries(d.grouped.by_severity)) {
+            if (!v) continue;
+            out.push({ label: k, value: v, color: k === "critical" ? "var(--rose)" : k === "warning" ? "var(--amber)" : "var(--accent2)" });
+        }
+        Object.entries(d.grouped.by_child_doctype).sort((a, b) => b[1] - a[1]).slice(0, 8)
+            .forEach(([dt, n]) => out.push({ label: dt, value: n, icon: "fa-table", color: "var(--muted)" }));
+        return out;
+    },
+    sections: [{
+        id: "orphans",
+        title: "Orphan Rows",
+        subtitle: "Child rows that can no longer be reached from any parent document",
+        icon: "fa-table-list",
+        placeholder: "Search doctype, row, parent or reason…",
+        rows: (d) => d.findings,
+        filter: { label: "All severities", key: "severity", options: [
+            { value: "critical", label: "Critical" }, { value: "warning", label: "Warning" }, { value: "info", label: "Info" },
+        ] },
+        columns: [
+            { key: "severity", label: "Severity", render: (r) => `<span class="pill ${SEV[r.severity] || "info"}">${DBTool.esc(r.severity)}</span>` },
+            { key: "child_doctype", label: "Child DocType", cls: "dt-name" },
+            { key: "row_name", label: "Row", cls: "mono" },
+            { key: "parenttype", label: "Parent DocType", cls: "dt-name" },
+            { key: "parent", label: "Parent", render: (r) => `<span class="mono value">${DBTool.esc(r.parent || "—")}</span>` },
+            { key: "parentfield", label: "Parent Field", cls: "mono" },
+            { key: "reason", label: "Reason", cls: "reason" },
+        ],
+        empty: { icon: "fa-circle-check", title: "No orphan child rows", text: "Every child row resolves to a live parent document." },
+    }],
+    afterRender: (d) => {
+        if (d.summary.truncated) DBTool.toast("Result truncated at the max-findings limit", true);
+    },
+});
+</script>
+{% endblock %}

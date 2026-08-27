@@ -1,0 +1,80 @@
+{% extends "templates/db_tools_base.html" %}
+
+{% block page_title %}Largest Tables Analyzer · Database Tools{% endblock %}
+{% block tool_icon %}fa-solid fa-chart-column{% endblock %}
+{% block tool_name %}Largest Tables Analyzer{% endblock %}
+{% block tool_tagline %}Which tables consume the most space in this database{% endblock %}
+{% block chip_title %}Top Consumers{% endblock %}
+{% block chip_sub %}Share of total database size{% endblock %}
+{% block loading_text %}Measuring table sizes&hellip;{% endblock %}
+{% block footer_note %}sizes read from information_schema{% endblock %}
+
+{% block options %}
+<div class="panel">
+    <h3><i class="fa-solid fa-sliders"></i> Analysis Options</h3>
+    <div class="sub">Row counts are MariaDB estimates unless exact counts are requested</div>
+    <div class="filters">
+        <div class="fgroup">
+            <label>Show Top</label>
+            <input id="fLimit" type="number" value="50" min="1">
+        </div>
+        <div class="fgroup">
+            <label>Min Size (KB)</label>
+            <input id="fMinKb" type="number" value="0" min="0">
+        </div>
+        <div class="fgroup">
+            <label>&nbsp;</label>
+            <div class="checks">
+                <label class="check"><input id="fExact" type="checkbox"> Exact row counts (slower)</label>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+DBTool.init({
+    api: "db_tools.backend.largest_tables_analyzer.api.get_largest_tables_report",
+    filename: "largest_tables",
+    statCount: 6,
+    doneMessage: "Size analysis complete",
+    params: () => ({
+        limit: document.getElementById("fLimit").value,
+        exact_counts: document.getElementById("fExact").checked,
+        min_bytes: (parseInt(document.getElementById("fMinKb").value, 10) || 0) * 1024,
+    }),
+    stats: (d) => [
+        { icon: "fa-database", label: "Total Database Size", value: d.summary.total_size, raw: true, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-file-lines", label: "Data", value: d.summary.data_size, raw: true, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-layer-group", label: "Indexes", value: d.summary.index_size, raw: true, color: "var(--amber)", bg: "rgba(245,158,11,.14)" },
+        { icon: "fa-table", label: "Tables", value: d.summary.table_count, color: "var(--accent2)", bg: "rgba(34,211,238,.14)" },
+        { icon: "fa-list-ol", label: "Rows (est.)", value: d.summary.total_rows, color: "#a78bfa", bg: "rgba(167,139,250,.14)" },
+        { icon: "fa-trophy", label: "Largest: " + d.summary.largest_table, value: d.summary.largest_size, raw: true, color: "var(--green)", bg: "rgba(52,211,153,.14)" },
+    ],
+    chips: (d) => (d.tables || []).slice(0, 8).map(t => ({
+        label: t.table_name, value: t.pct_of_db + "%", raw: true, icon: "fa-table", color: "var(--accent2)",
+    })),
+    sections: [{
+        id: "tables",
+        title: "Tables by Size",
+        subtitle: "Data + index bytes as reported by the storage engine",
+        icon: "fa-chart-column",
+        placeholder: "Search table or doctype…",
+        rows: (d) => d.tables,
+        columns: [
+            { key: "table_name", label: "Table", cls: "mono value" },
+            { key: "doctype", label: "DocType", cls: "dt-name" },
+            { key: "rows", label: "Rows", type: "number" },
+            { key: "data_bytes", label: "Data", type: "number", render: (r) => DBTool.esc(r.data_size) },
+            { key: "index_bytes", label: "Index", type: "number", render: (r) => DBTool.esc(r.index_size) },
+            { key: "total_bytes", label: "Total", type: "number", render: (r) => `<b>${DBTool.esc(r.total_size)}</b>` },
+            { key: "pct_of_db", label: "% of DB", type: "number", render: (r) => `${r.pct_of_db}%<div class="bar"><span style="width:${Math.min(r.pct_of_db, 100)}%"></span></div>` },
+            { key: "avg_row_size", label: "Avg Row" },
+            { key: "engine", label: "Engine", cls: "mono" },
+        ],
+        empty: { icon: "fa-circle-info", color: "var(--accent2)", title: "No tables matched", text: "Lower the minimum size filter." },
+    }],
+});
+</script>
+{% endblock %}
